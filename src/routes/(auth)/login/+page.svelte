@@ -26,7 +26,7 @@
       modules: [Autoplay, Pagination],
       spaceBetween: 30,
       slidesPerView: 1,
-      autoplay: { delay: 3000 },
+      autoplay: { delay: 5000 },
       pagination: { clickable: true },
       loop: true,
     });

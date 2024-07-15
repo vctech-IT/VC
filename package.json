@@ -39,7 +39,10 @@
 	"dependencies": {
 		"@prisma/client": "^5.16.2",
 		"bcrypt": "^5.1.1",
+		"jspdf": "^2.5.1",
+		"jspdf-autotable": "^3.8.2",
 		"lucide-svelte": "^0.408.0",
-		"swiper": "^11.1.4"
+		"swiper": "^11.1.4",
+		"xlsx": "^0.18.5"
 	}
 }
