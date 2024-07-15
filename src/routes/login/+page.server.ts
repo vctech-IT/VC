@@ -4,9 +4,8 @@ import type { Action, Actions, PageServerLoad } from './$types'
 
 import { db } from '$lib/database'
 
-export const load: PageServerLoad = async ( locals ) => {
-    // redirect user if logged in
-  if (locals.user) {
+export const load: PageServerLoad = async ({ locals }) => {
+      if (locals.user) {
     redirect(302, '/')
   }
 }
@@ -15,10 +14,13 @@ const login: Action = async ({ cookies, request }) => {
   const data = await request.formData()
   const username = data.get('username')
   const password = data.get('password')
+  // const email = data.get('email')
 
   if (
     typeof username !== 'string' ||
     typeof password !== 'string' ||
+    // typeof email !== 'string' ||
+    // !email ||
     !username ||
     !password
   ) {
@@ -31,10 +33,21 @@ const login: Action = async ({ cookies, request }) => {
     return fail(400, { credentials: true })
   }
 
+  // const emailid = await db.user.findUnique({ where: { email } })
+
+  // if (!emailid) {
+  //   return fail(400, { email: true })
+  // }
+  
+
   const userPassword = await bcrypt.compare(password, user.passwordHash)
 
   if (!userPassword) {
     return fail(400, { credentials: true })
+  }
+
+  if (!user.isApproved) {
+    return fail(400, { notApproved: true })
   }
 
   // generate new auth token just in case
