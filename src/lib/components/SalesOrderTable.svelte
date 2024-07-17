@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { SalesOrder } from '$lib/types';
-    import { createEventDispatcher, onMount } from 'svelte';
+    import { createEventDispatcher, onMount, onDestroy } from 'svelte';
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
     import { Cog, CheckCircle, AlertCircle, XCircle } from 'lucide-svelte';
@@ -22,10 +22,14 @@
         'status', 'invoiced_status', 'payment_status', 'ops_status', 'shipment_date', 'order_status', 'delivery_method'
     ];
     let visibleColumns = [...originalColumnOrder];
+    let tempVisibleColumns: string[] = [];
     let isColumnSelectorOpen = false;
     let isDownloadMenuOpen = false;
     let isLoading = false;
     let lockedColumns = ['date', 'salesorder_number', 'customer_name', 'total', 'order_status'];
+
+    let columnSelectorRef: HTMLDivElement;
+    let downloadMenuRef: HTMLDivElement;
 
     const dispatch = createEventDispatcher();
 
@@ -39,7 +43,7 @@
             const normalizedSalesOrderNumber = normalizeString(order.salesorder_number);
             const normalizedCustomerName = normalizeString(order.customer_name);
             const normalizedReferenceNumber = normalizeString(order.reference_number);
-            const normalizedFullOrderNumber = normalizeString(`vctso${order.salesorder_number}`);
+            const normalizedFullOrderNumber = normalizeString(vctso${order.salesorder_number});
 
             return normalizedSalesOrderNumber.includes(normalizedSearch) ||
                    normalizedCustomerName.includes(normalizedSearch) ||
@@ -75,7 +79,7 @@
 
     async function handleRowClick(order: SalesOrder) {
         isLoading = true;
-        await goto(`/salesOrder/${order.salesorder_id}`);
+        await goto(/salesOrder/${order.salesorder_id});
         isLoading = false;
     }
 
@@ -83,7 +87,7 @@
         if (newPage >= 1 && newPage <= totalPages) {
             currentPage = newPage;
             updatePagination();
-            await goto(`?page=${currentPage}`);
+            await goto(?page=${currentPage});
         }
     }
 
@@ -91,7 +95,7 @@
         const day = date.getDate().toString().padStart(2, '0');
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return ${day}/${month}/${year};
     }
 
     function formatCurrency(amount: number): string {
@@ -103,27 +107,28 @@
     }
 
     function toggleColumn(column: string) {
-        if (lockedColumns.includes(column)) {
-            return;
-        }
-        if (visibleColumns.includes(column)) {
-            visibleColumns = visibleColumns.filter(c => c !== column);
+    if (lockedColumns.includes(column)) {
+        return;
+    }
+    if (visibleColumns.includes(column)) {
+        visibleColumns = visibleColumns.filter(c => c !== column);
+    } else {
+        const index = originalColumnOrder.findIndex(c => c === column);
+        const insertIndex = visibleColumns.findIndex(c => originalColumnOrder.indexOf(c) > index);
+        if (insertIndex === -1) {
+            visibleColumns = [...visibleColumns, column];
         } else {
-            const index = originalColumnOrder.findIndex(c => c === column);
-            const insertIndex = visibleColumns.findIndex(c => originalColumnOrder.indexOf(c) > index);
-            if (insertIndex === -1) {
-                visibleColumns = [...visibleColumns, column];
-            } else {
-                visibleColumns = [
-                    ...visibleColumns.slice(0, insertIndex),
-                    column,
-                    ...visibleColumns.slice(insertIndex)
-                ];
-            }
+            visibleColumns = [
+                ...visibleColumns.slice(0, insertIndex),
+                column,
+                ...visibleColumns.slice(insertIndex)
+            ];
         }
     }
+}
 
-    function toggleDownloadMenu() {
+    function toggleDownloadMenu(event: MouseEvent) {
+        event.stopPropagation();
         isDownloadMenuOpen = !isDownloadMenuOpen;
     }
 
@@ -138,6 +143,7 @@
         isDownloadMenuOpen = false;
     }
 
+   
     function downloadCSV() {
         const headers = visibleColumns.map(column => column.replace('_', ' '));
         const csvContent = [
@@ -169,29 +175,60 @@
     }
 
     function downloadPDF() {
-        const doc = new jsPDF();
-        doc.autoTable({
-            head: [visibleColumns.map(column => column.replace('_', ' '))],
-            body: filteredOrders.map(order => 
-                visibleColumns.map(column => {
-                    if (column === 'date' || column === 'shipment_date') {
-                        return order[column] ? formatDate(new Date(order[column])) : 'N/A';
-                    } else if (column === 'total') {
-                        return formatCurrency(order[column]);
-                    } else {
-                        return order[column];
-                    }
-                })
-            ),
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'pt',
+            format: 'a4'
         });
+
+        const tableData = filteredOrders.map(order => 
+            visibleColumns.map(column => {
+                if (column === 'date' || column === 'shipment_date') {
+                    return order[column] ? formatDate(new Date(order[column])) : 'N/A';
+                } else if (column === 'total') {
+                    return formatCurrency(order[column]);
+                } else {
+                    return order[column] ? order[column].toString() : '';
+                }
+            })
+        );
+
+        const maxColumnsPerPage = 5;
+        const pages = Math.ceil(visibleColumns.length / maxColumnsPerPage);
+
+        for (let i = 0; i < pages; i++) {
+            if (i > 0) doc.addPage();
+
+            const startCol = i * maxColumnsPerPage;
+            const endCol = Math.min((i + 1) * maxColumnsPerPage, visibleColumns.length);
+
+            const pageColumns = visibleColumns.slice(startCol, endCol);
+            const pageData = tableData.map(row => row.slice(startCol, endCol));
+
+            doc.text(Sales Orders (Page ${i + 1} of ${pages}), 40, 15);
+
+            doc.autoTable({
+                head: [pageColumns.map(column => column.replace('_', ' ').toUpperCase())],
+                body: pageData,
+                startY: 30,
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2,
+                },
+                columnStyles: {},
+            });
+        }
 
         doc.save("sales_orders.pdf");
     }
 
     function downloadExcel() {
+        // Sort the filteredOrders array based on the date column (assuming it's the first column)
+        const sortedOrders = [...filteredOrders].sort((a, b) => new Date(b.date) - new Date(a.date));
+
         const wsData = [
             visibleColumns.map(column => column.replace('_', ' ')),
-            ...filteredOrders.map(order => 
+            ...sortedOrders.map(order => 
                 visibleColumns.map(column => {
                     if (column === 'date' || column === 'shipment_date') {
                         return order[column] ? formatDate(new Date(order[column])) : 'N/A';
@@ -208,13 +245,40 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Sales Orders");
 
+        // Set column widths
+        const columnWidths = visibleColumns.map(column => ({wch: column.length + 5}));
+        ws['!cols'] = columnWidths;
+
         XLSX.writeFile(wb, "sales_orders.xlsx");
+    }
+
+    function handleClickOutside(event: MouseEvent) {
+        if (columnSelectorRef && !columnSelectorRef.contains(event.target as Node) && isColumnSelectorOpen) {
+            isColumnSelectorOpen = false;
+        }
+        if (downloadMenuRef && !downloadMenuRef.contains(event.target as Node) && isDownloadMenuOpen) {
+            isDownloadMenuOpen = false;
+        }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+        if (event.key === 'Escape') {
+            isColumnSelectorOpen = false;
+            isDownloadMenuOpen = false;
+        }
     }
 
     onMount(() => {
         filteredOrders = [...orders];
         updatePagination();
         isLoading = false;
+        document.addEventListener('click', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+    });
+
+    onDestroy(() => {
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('keydown', handleKeyDown);
     });
 </script>
 
@@ -233,23 +297,23 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                 </button>
                 {#if isDownloadMenuOpen}
-                <div class="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10">
+                <div bind:this={downloadMenuRef} class="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10">
                     <div class="py-1">
                         <button
-                            on:click={() => handleDownload('csv')}
+                            on:click|stopPropagation={() => handleDownload('csv')}
                             class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         >
                             CSV
                         </button>
                         
                         <button
-                            on:click={() => handleDownload('excel')}
+                            on:click|stopPropagation={() => handleDownload('excel')}
                             class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         >
                             EXCEL
                         </button>
                         <button
-                            on:click={() => handleDownload('pdf')}
+                            on:click|stopPropagation={() => handleDownload('pdf')}
                             class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         >
                             PDF
@@ -258,33 +322,40 @@
                 </div>
             {/if}
             </div>
-            <button on:click={() => isColumnSelectorOpen = !isColumnSelectorOpen} class="p-2 rounded-full hover:bg-gray-200">
+            <button on:click|stopPropagation={() => {
+                isColumnSelectorOpen = !isColumnSelectorOpen;
+                if (isColumnSelectorOpen) {
+                    tempVisibleColumns = [...visibleColumns];
+                }
+            }} class="p-2 rounded-full hover:bg-gray-200">
                 <Cog size={24} />
             </button>
             {#if isColumnSelectorOpen}
-                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                    
-                    <div class="py-1">
-                        {#each originalColumnOrder as column}
-                            <label class="flex items-center px-4 py-2 hover:bg-gray-100">
-                                <input
-                                    type="checkbox"
-                                    checked={visibleColumns.includes(column)}
-                                    on:change={() => toggleColumn(column)}
-                                    disabled={lockedColumns.includes(column)}
-                                    class="mr-2"
-                                />
-                                <span class="{lockedColumns.includes(column) ? 'opacity-50 cursor-not-allowed' : ''}">
-                                    {column.replace('_', ' ')}
-                                </span>
-                            </label>
-                        {/each}
-                        <button on:click={() => isColumnSelectorOpen = false} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            {/if}
+    <div bind:this={columnSelectorRef} class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+        <div class="py-1">
+            {#each originalColumnOrder as column}
+                <label class="flex items-center px-4 py-2 hover:bg-gray-100">
+                    <input
+                        type="checkbox"
+                        checked={visibleColumns.includes(column)}
+                        on:change={() => toggleColumn(column)}
+                        disabled={lockedColumns.includes(column)}
+                        class="mr-2"
+                    />
+                    <span class="{lockedColumns.includes(column) ? 'opacity-50 cursor-not-allowed' : ''}">
+                        {column.replace('_', ' ')}
+                    </span>
+                </label>
+            {/each}
+            <button
+                on:click={() => isColumnSelectorOpen = false}
+                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+                Cancel
+            </button>
+        </div>
+    </div>
+{/if}
         </div>
     </div>
 
@@ -308,39 +379,39 @@
                     >
                         {#each originalColumnOrder as column}
                             {#if visibleColumns.includes(column)}
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                    {#if column === 'date' || column === 'shipment_date'}
-                                        {order[column] ? formatDate(new Date(order[column])) : 'N/A'}
-                                    {:else if column === 'total'}
-                                        {formatCurrency(order[column])}
-                                    {:else if column === 'status' || column === 'order_status'}
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                            {order[column] === 'pending_approval' ? 'bg-red-100 text-red-800' : 
-                                            order[column] === 'open' ? 'bg-green-100 text-green-800' : 
-                                            order[column] === 'closed' ? 'bg-gray-100 text-gray-800' : 
-                                            'bg-yellow-100 text-yellow-800'}">
-                                            {order[column] === 'open' ? 'confirmed' : order[column]}
-                                        </span>
-                                    {:else if column === 'invoiced_status' || column === 'payment_status'}
-                                    <div class="relative inline-block group">
-                                        {#if order[column] === 'partially_invoiced' || order[column] === 'partially_paid'}
-                                            <AlertCircle size={24} class="text-yellow-500" />
-                                        {:else if order[column] === 'invoiced' || order[column] === 'paid'}
-                                            <CheckCircle size={24} class="text-green-500" />
-                                        {:else}
-                                            <XCircle size={24} class="text-gray-500" />
-                                        {/if}
-                                        <div class="absolute z-10 w-auto p-2 m-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-opacity duration-300 opacity-0 group-hover:opacity-100 bottom-full left-1/2 transform -translate-x-1/2">
-                                            {order[column]}
-                                            <svg class="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
-                                        </div>
-                                    </div>
-                                    {:else if column === 'ops_status'}
-                                        {order[column] || 'N/A'}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {#if column === 'date' || column === 'shipment_date'}
+                                    {order[column] ? formatDate(new Date(order[column])) : 'N/A'}
+                                {:else if column === 'total'}
+                                    {formatCurrency(order[column])}
+                                {:else if column === 'status' || column === 'order_status'}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {order[column] === 'pending_approval' ? 'bg-red-100 text-red-800' : 
+                                order[column] === 'open' ? 'bg-green-100 text-green-800' : 
+                                order[column] === 'closed' ? 'bg-gray-100 text-gray-800' : 
+                                'bg-yellow-100 text-yellow-800'}">
+                                    {order[column] === 'open' ? 'confirmed' : order[column]}
+                                </span>
+                            {:else if column === 'invoiced_status' || column === 'payment_status'}
+                                <div class="relative inline-block group">
+                                    {#if order[column] === 'partially_invoiced' || order[column] === 'partially_paid'}
+                                        <AlertCircle size={24} class="text-yellow-500" />
+                                    {:else if order[column] === 'invoiced' || order[column] === 'paid'}
+                                        <CheckCircle size={24} class="text-green-500" />
                                     {:else}
-                                        {order[column]}
+                                        <XCircle size={24} class="text-gray-500" />
                                     {/if}
-                                </td>
+                                    <div class="absolute z-10 w-auto p-2 m-2 min-w-max rounded-md shadow-md text-white bg-gray-900 text-xs font-bold transition-opacity duration-300 opacity-0 group-hover:opacity-100 bottom-full left-1/2 transform -translate-x-1/2">
+                                        {order[column]}
+                                        <svg class="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255" xml:space="preserve"><polygon class="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                                    </div>
+                                </div>
+                            {:else if column === 'ops_status'}
+                                {order[column] || 'N/A'}
+                            {:else}
+                                {order[column]}
+                                {/if}
+                            </td>
                             {/if}
                         {/each}
                     </tr>
@@ -348,7 +419,7 @@
             </tbody>
         </table>
     </div>
-
+    
     <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-blue-200 sm:px-6 mt-4 rounded-lg shadow">
         <div class="flex-1 flex justify-between sm:hidden">
             <button 
@@ -400,40 +471,39 @@
                 </nav>
              </div> 
         </div>
-    </div> 
-
+    </div>
+    
     {#if isLoading}
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
             <div class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
         </div>
     {/if}
-</div>
-
-<style>
-    .bg-blue-50 {
-        background-color: #eff6ff;
-    }
-    .bg-blue-100 {
-        background-color: #dbeafe;
-    }
-    .bg-blue-200 {
-        background-color: #bfdbfe;
-    }
-    .bg-blue-500 {
-        background-color: #3b82f6;
-    }
-    .hover\:bg-blue-50:hover {
-        background-color: #eff6ff;
-    }
-    .divide-blue-100 > :not([hidden]) ~ :not([hidden]) {
-        border-color: #dbeafe;
-    }
-    .divide-blue-200 > :not([hidden]) ~ :not([hidden]) {
-        border-color: #bfdbfe;
-    }
-    input[type="checkbox"]:disabled + span {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-</style>
-
+    </div>
+    
+    <style>
+        .bg-blue-50 {
+            background-color: #eff6ff;
+        }
+        .bg-blue-100 {
+            background-color: #dbeafe;
+        }
+        .bg-blue-200 {
+            background-color: #bfdbfe;
+        }
+        .bg-blue-500 {
+            background-color: #3b82f6;
+        }
+        .hover\:bg-blue-50:hover {
+            background-color: #eff6ff;
+        }
+        .divide-blue-100 > :not([hidden]) ~ :not([hidden]) {
+            border-color: #dbeafe;
+        }
+        .divide-blue-200 > :not([hidden]) ~ :not([hidden]) {
+            border-color: #bfdbfe;
+        }
+        input[type="checkbox"]:disabled + span {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>

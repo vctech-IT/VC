@@ -28,10 +28,12 @@
 
   function toggleNotifications() {
     showNotifications = !showNotifications;
+    if (showUserMenu) showUserMenu = false;
   }
 
   function toggleUserMenu() {
     showUserMenu = !showUserMenu;
+    if (showNotifications) showNotifications = false;
   }
 
   function viewProfile() {
@@ -49,7 +51,27 @@
       { id: 5, title: 'Approval Required', message: 'Your leave request is pending approval', time: '3 days ago' },
     ];
   }
+
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.notification-menu') && !target.closest('.user-menu')) {
+      closeAllMenus();
+    }
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      closeAllMenus();
+    }
+  }
+
+  function closeAllMenus() {
+    showNotifications = false;
+    showUserMenu = false;
+  }
 </script>
+
+<svelte:window on:click={handleClickOutside} on:keydown={handleKeydown} />
 
 <header class="bg-gray-300 shadow-sm z-10">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -63,7 +85,7 @@
         </div>
       </div>
       <div class="flex items-center">
-        <div class="relative">
+        <div class="relative notification-menu">
           <button on:click={toggleNotifications} type="button" class="p-1.5 rounded-full text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-300">
             <span class="sr-only">View notifications</span>
             <Bell class="h-5 w-5" />
@@ -88,7 +110,7 @@
             </div>
           {/if}
         </div>
-        <div class="ml-3 relative">
+        <div class="ml-3 relative user-menu">
           <button on:click={toggleUserMenu} type="button" class="flex items-center max-w-xs rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-300">
             <span class="sr-only">Open user menu</span>
             <img class="h-8 w-8 rounded-full" src={user?.image || "https://static.vecteezy.com/system/resources/thumbnails/020/765/399/small/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg"} alt="User profile">

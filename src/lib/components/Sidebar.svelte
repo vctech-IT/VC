@@ -21,6 +21,7 @@
   const menuItems = [
     { icon: CheckSquare, label: 'Dashboard', href: '/' },
     { icon: Briefcase, label: 'Sales Orders', href: '/salesOrder' },
+    { icon: Briefcase, label: 'Invoices', href: '/invoice' }
   ];
 
   const handleNavigation = (href: string) => {
