@@ -43,7 +43,7 @@
             const normalizedSalesOrderNumber = normalizeString(order.salesorder_number);
             const normalizedCustomerName = normalizeString(order.customer_name);
             const normalizedReferenceNumber = normalizeString(order.reference_number);
-            const normalizedFullOrderNumber = normalizeString(vctso${order.salesorder_number});
+            const normalizedFullOrderNumber = normalizeString(`vctso${order.salesorder_number}`);
 
             return normalizedSalesOrderNumber.includes(normalizedSearch) ||
                    normalizedCustomerName.includes(normalizedSearch) ||
@@ -79,7 +79,7 @@
 
     async function handleRowClick(order: SalesOrder) {
         isLoading = true;
-        await goto(/salesOrder/${order.salesorder_id});
+        await goto(`/salesOrder/${order.salesorder_id}`);
         isLoading = false;
     }
 
@@ -87,7 +87,7 @@
         if (newPage >= 1 && newPage <= totalPages) {
             currentPage = newPage;
             updatePagination();
-            await goto(?page=${currentPage});
+            await goto(`?page=${currentPage}`);
         }
     }
 
@@ -95,7 +95,7 @@
         const day = date.getDate().toString().padStart(2, '0');
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const year = date.getFullYear();
-        return ${day}/${month}/${year};
+        return `${day}/${month}/${year}`;
     }
 
     function formatCurrency(amount: number): string {
@@ -205,7 +205,7 @@
             const pageColumns = visibleColumns.slice(startCol, endCol);
             const pageData = tableData.map(row => row.slice(startCol, endCol));
 
-            doc.text(Sales Orders (Page ${i + 1} of ${pages}), 40, 15);
+            doc.text(`Sales Orders (Page ${i + 1} of ${pages})`, 40, 15);
 
             doc.autoTable({
                 head: [pageColumns.map(column => column.replace('_', ' ').toUpperCase())],
@@ -507,3 +507,4 @@
             cursor: not-allowed;
         }
     </style>
+
