@@ -11,7 +11,8 @@ enum Roles {
   OPERATION = 'OPERATION',
   WAREHOUSE = 'WAREHOUSE',
   MATERIALPROCURE = 'MATERIALPROCURE',
-  ACCOUNTANT = 'ACCOUNTANT'
+  ACCOUNTANT = 'ACCOUNTANT',
+  MANAGER = 'MANAGER'
 }
 
 export const load: PageServerLoad = async ({ locals }) => {

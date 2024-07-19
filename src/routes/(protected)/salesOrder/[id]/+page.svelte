@@ -6,11 +6,15 @@
     import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
     import StageUpdateModal from '$lib/components/StageUpdateModal.svelte';
-    import SalesOrderLogs from '$lib/components/SalesOrderLogs.svelte';
     import { writable } from 'svelte/store';
     import { ArrowLeft, Download, ChevronDown } from 'svelte-lucide';
+    import { logStore, type LogEntry } from '../../../../lib/stores/LogStore';
+
 
     export let data: PageData;
+
+    let currentUsername = data.user.name;
+    let currentUserRole = data.user.role;
     
     $: salesOrder = data.salesOrder;
 
@@ -73,6 +77,37 @@
     function switchTab(tab: any) {
         activeTab = tab;
     }
+
+  let soCategory = "";
+  let projectManagerName = "";
+
+  let salesOrderLogs: LogEntry[] = [];
+
+  onMount(() => {
+    logStore.loadLogs();
+    const unsubscribe = logStore.subscribe(allLogs => {
+      salesOrderLogs = allLogs[salesOrder.salesorder_number] || [];
+    });
+
+    return unsubscribe;
+  });
+
+  function handleFieldUpdate(fieldName: string, oldValue: string, newValue: string) {
+    const logEntry: LogEntry = {
+      username: currentUsername,
+      role: currentUserRole,
+      action: `Updated ${fieldName} from "${oldValue}" to "${newValue}"`,
+      timestamp: new Date()
+    };
+    logStore.addLog(salesOrder.salesorder_number, logEntry);
+    
+    const unsubscribe = logStore.subscribe(logs => logStore.saveLogs(logs));
+    unsubscribe();
+  }
+
+  function formatLogDate(date: Date): string {
+    return new Date(date).toLocaleString();
+  }
 </script>
 
 <div class="bg-gray-100 min-h-screen py-8 px-4">
@@ -205,10 +240,35 @@
     </div>
 </div>
 
+<div class="max-w-6xl mx-auto mt-8">
+  <div class="bg-white shadow-xl rounded-lg overflow-hidden">
+    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+      <h2 class="text-xl font-bold text-white">Activity Logs for SO #{salesOrder.salesorder_number}</h2>
+    </div>
+    <div class="p-6">
+      {#if salesOrderLogs.length === 0}
+        <p class="text-gray-500">No activity logs yet for this Sales Order.</p>
+      {:else}
+        <ul class="space-y-4">
+          {#each salesOrderLogs as log}
+            <li class="border-b border-gray-200 pb-2">
+              <p class="text-sm text-gray-600">{formatLogDate(log.timestamp)}</p>
+              <p class="font-medium">{log.username} ({log.role})</p>
+              <p>{log.action}</p>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+  </div>
+</div>
+
 {#if showStageUpdateModal}
     <StageUpdateModal 
         {salesOrder} 
         {data}
+        username={currentUsername}
+        userRole={currentUserRole}
         on:close={toggleStageUpdateModal}
     />
 {/if}

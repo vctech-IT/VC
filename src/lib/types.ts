@@ -292,3 +292,16 @@ export interface Invoice {
     // Add other fields as necessary
 }
 
+export interface ActionData {
+  user?: string;
+  emailid?: string;
+  phoneno?: string;
+}
+
+export interface LogEntry {
+  username: string;
+  role: string;
+  action: string;
+  timestamp: Date;
+}
+

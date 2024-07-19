@@ -35,3 +35,85 @@ model Roles{
   name      String @unique
   User      User[]
 }
+
+model Stage0 {  
+  SONumber     String     @id @map("_id")
+  isDropped    Boolean    @default(false)
+  currentStage Int
+  clientName   String       
+  SubTotal     Float
+  Total        Float
+  SOCategory   String     
+  PMName       String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  Stage1       Stage1[]
+  LineItems    LineItems[]
+  Installation Installation[]
+  Service      Service[]
+  Stage4       Stage4[]
+}
+
+model Stage1 {
+  SONumber        String   @id @map("_id")
+  DCNumber        String 
+  CourierTrackNo  String
+  DispatchDate    DateTime
+  DeliveryDate    DateTime
+  DCAmount        Float
+  Attachment      String?
+  submittedOn     DateTime   @default(now())
+  SONo            Stage0  @relation(fields: [SONumber], references: [SONumber])
+}
+
+model LineItems{
+  Itemid          String      @id @default(auto()) @map("_id") @db.ObjectId
+  SONumber        String
+  ItemName        String
+  Quantity        Int
+  Unit            String
+  Rate            Float
+  Amount          Float
+  Status          String
+  SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
+}
+
+model Installation {
+  SONumber          String      @id @map("_id") 
+  engName           String
+  ScheduleDate      DateTime
+  MobNo             String
+  VendorName        String
+  InstallationRem   String
+  InstReport        String?
+  submittedOn       DateTime   @default(now())
+  SONo              Stage0     @relation(fields: [SONumber], references: [SONumber])
+}
+
+model Service {
+  SONumber          String     @id @map("_id") 
+  engName           String
+  ScheduleDate      DateTime
+  MobNo             String
+  VendorName        String
+  ServiceRem        String
+  ServiceReport     String?
+  Serticketid       String
+  submittedOn       DateTime   @default(now())
+  SONo              Stage0     @relation(fields: [SONumber], references: [SONumber])
+}
+
+model Stage4{
+  SONumber        String     @id @map("_id")
+  Name            String
+  MobNo           String
+  ProjMngRemark   String
+  DCNumber        String?
+  CourierTrackNo  String?
+  DCAmount        Float?
+  DispatchDate    DateTime?  
+  DeliveryDate    DateTime?  
+  Remark          String?
+  Attachment      String?
+  SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
+}

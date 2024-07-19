@@ -13,6 +13,11 @@
     export let totalPages = 1;
     export let totalCount = 0;
 
+    let isFilterOpen = false;
+    let activeFilters: { [key: string]: string[] } = {};
+
+    let filterMenuRef: HTMLDivElement;
+
     let searchTerm = '';
     let filteredOrders: SalesOrder[] = [];
     let paginatedOrders: SalesOrder[] = [];
@@ -33,6 +38,22 @@
 
     const dispatch = createEventDispatcher();
 
+    function toggleFilter(event: MouseEvent) {
+    event.stopPropagation();
+    isFilterOpen = !isFilterOpen;
+    }
+
+    function applyFilters() {
+    filteredOrders = orders.filter(order => {
+        return Object.entries(activeFilters).every(([column, values]) => {
+            if (values.length === 0) return true;
+            return values.includes(order[column]);
+        });
+    });
+    updatePagination();
+    isFilterOpen = false;
+}
+
     function normalizeString(str: string): string {
         return str.toLowerCase().replace(/[^a-z0-9]/g, '');
     }
@@ -50,6 +71,13 @@
                    normalizedReferenceNumber.includes(normalizedSearch) ||
                    normalizedFullOrderNumber.includes(normalizedSearch);
         });
+
+            filteredOrders = filteredOrders.filter(order => {
+        return Object.entries(activeFilters).every(([column, values]) => {
+            if (values.length === 0) return true;
+            return values.includes(order[column]);
+        });
+         });
 
         // Additional check for "VCT/SO/" format
         const parts = searchTerm.split('/');
@@ -224,7 +252,7 @@
 
     function downloadExcel() {
         // Sort the filteredOrders array based on the date column (assuming it's the first column)
-        const sortedOrders = [...filteredOrders].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const sortedOrders = [...filteredOrders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         const wsData = [
             visibleColumns.map(column => column.replace('_', ' ')),
@@ -252,14 +280,17 @@
         XLSX.writeFile(wb, "sales_orders.xlsx");
     }
 
-    function handleClickOutside(event: MouseEvent) {
-        if (columnSelectorRef && !columnSelectorRef.contains(event.target as Node) && isColumnSelectorOpen) {
-            isColumnSelectorOpen = false;
+        function handleClickOutside(event: MouseEvent) {
+            if (columnSelectorRef && !columnSelectorRef.contains(event.target as Node) && isColumnSelectorOpen) {
+                isColumnSelectorOpen = false;
+            }
+            if (downloadMenuRef && !downloadMenuRef.contains(event.target as Node) && isDownloadMenuOpen) {
+                isDownloadMenuOpen = false;
+            }
+            if (filterMenuRef && !filterMenuRef.contains(event.target as Node) && isFilterOpen) {
+                isFilterOpen = false;
+            }
         }
-        if (downloadMenuRef && !downloadMenuRef.contains(event.target as Node) && isDownloadMenuOpen) {
-            isDownloadMenuOpen = false;
-        }
-    }
 
     function handleKeyDown(event: KeyboardEvent) {
         if (event.key === 'Escape') {
@@ -270,6 +301,9 @@
 
     onMount(() => {
         filteredOrders = [...orders];
+        visibleColumns.forEach(column => {
+        activeFilters[column] = [];
+        });
         updatePagination();
         isLoading = false;
         document.addEventListener('click', handleClickOutside);
@@ -292,6 +326,39 @@
             on:input={handleSearch}
         />
         <div class="relative ml-4 flex">
+            <div>
+                    <button on:click={toggleFilter} class="p-2 rounded-full hover:bg-gray-200 mr-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    </button>
+    {#if isFilterOpen}
+    <div bind:this={filterMenuRef} class="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg z-10">
+        <div class="py-1">
+            <div class="px-4 py-2 font-bold">Filter by:</div>
+            <div class="px-4 py-2">
+                <label class="block font-semibold mb-1">Order Status</label>
+                {#each ['pending_approval', 'open', 'closed'] as status}
+                    <label class="flex items-center">
+                        <input
+                            type="checkbox"
+                            bind:group={activeFilters['order_status']}
+                            value={status}
+                            class="mr-2"
+                        />
+                        {status}
+                    </label>
+                {/each}
+            </div>
+            <!-- Add more filter options for other columns here -->
+            <button
+                on:click={applyFilters}
+                class="block w-full text-left px-4 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600"
+            >
+                Apply Filters
+            </button>
+        </div>
+    </div>
+    {/if}
+            </div>
             <div class="relative">
                 <button on:click={toggleDownloadMenu} class="p-2 rounded-full hover:bg-gray-200 mr-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
