@@ -7,6 +7,7 @@
   import type { ActionData } from './$types';
   import "$lib/styles/app.css"
   import { enhance } from '$app/forms';
+  import emailjs from '@emailjs/browser';
 
   export let form: ActionData;
 
@@ -16,10 +17,20 @@
   let showConfirmPassword = false;
   let passwordsMatch = true;
   let password = '';
-let confirmPassword = '';
+  let confirmPassword = '';
+  let email = '';
+  let emailChecked = false;
+  let otpSent = false;
+  let otp = '';
+  let userOtp = '';
+  let errorMessage = '';
+  let successMessage = '';
+  let otpAttempts = 0;
+  let otpResendTimer = 0;
+  let otpResendInterval: NodeJS.Timeout;
 
-$: passwordsMatch = password === confirmPassword;
-$: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
+  $: passwordsMatch = password === confirmPassword;
+  $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
 
   const slides = [
     { src: "1.svg", title: "Join Our Community", description: "Start your journey with us today" },
@@ -37,6 +48,127 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
       loop: true,
     });
   });
+
+    async function sendOTP() {
+    otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    const emailParams = {
+      to_email: email,
+      otp: otp,
+    };
+
+    try {
+      const emailResponse = await emailjs.send(
+        "YOUR_SERVICE_ID", 
+        "YOUR_TEMPLATE_ID", 
+        emailParams,
+        "YOUR_USER_ID"
+      );
+
+      if (emailResponse.status === 200) {
+        otpSent = true;
+        successMessage = 'OTP sent successfully. Please check your email.';
+        startResendTimer();
+      } else {
+        throw new Error('Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      errorMessage = 'Failed to send OTP. Please try again.';
+    }
+  }
+
+
+async function checkEmail(event: Event) {
+  event.preventDefault();
+  errorMessage = '';
+  successMessage = '';
+
+  if (!validateEmail(email)) {
+    errorMessage = 'Please enter a valid email address';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/check-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const result = await response.json();
+
+    if (result.exists) {
+      errorMessage = 'This email is already registered. Please use a different email.';
+    } else {
+      // Email doesn't exist, send OTP
+      otp = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      const emailParams = {
+        to_email: email,
+        otp: otp,
+      };
+
+      const emailResponse = await emailjs.send(
+        "service_qqk36ij", 
+        "template_4ivvz52", 
+        emailParams,
+        "2PTrHzMTB76ipBSTU"  
+      );
+
+      if (emailResponse.status === 200) {
+        otpSent = true;
+        successMessage = 'OTP sent successfully. Please check your email.';
+      } else {
+        throw new Error('Failed to send email');
+      }
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    errorMessage = 'An error occurred. Please try again.';
+  }
+}
+
+function verifyOtp() {
+    errorMessage = '';
+    successMessage = '';
+    
+    if (userOtp === otp) {
+      emailChecked = true;
+      successMessage = 'Email verified successfully. You can now complete your registration.';
+      clearInterval(otpResendInterval);
+    } else {
+      otpAttempts++;
+      if (otpAttempts >= 3) {
+        errorMessage = 'Too many incorrect attempts. Please request a new OTP.';
+        otpSent = false;
+        clearInterval(otpResendInterval);
+      } else {
+        errorMessage = `Incorrect OTP. You have ${3 - otpAttempts} attempts left.`;
+      }
+    }
+    
+    userOtp = '';
+  }
+
+  function startResendTimer() {
+    otpResendTimer = 30;
+    clearInterval(otpResendInterval);
+    otpResendInterval = setInterval(() => {
+      if (otpResendTimer > 0) {
+        otpResendTimer--;
+      } else {
+        clearInterval(otpResendInterval);
+      }
+    }, 1000);
+  }
+
+  async function resendOTP() {
+    otpAttempts = 0;
+    await sendOTP();
+  }
 
   const roles = [
     { value: 'ACCOUNTANT', label: 'Accountant' },
@@ -92,6 +224,54 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
         <h1 class="text-3xl font-bold text-gray-900">Create an Account</h1>
       </div>
 
+        {#if !emailChecked}
+        <form on:submit={checkEmail} class="space-y-3">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input 
+              id="email" 
+              name="email" 
+              type="email" 
+              required 
+              bind:value={email}
+              class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+              placeholder="Enter your email"
+            />
+          </div>
+          <button 
+            type="submit" 
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
+          >
+            Check Email
+          </button>
+        </form>
+
+        {#if otpSent}
+          <div class="mt-4">
+            <input 
+              type="text" 
+              bind:value={userOtp}
+              placeholder="Enter OTP"
+              class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            />
+            <button 
+              on:click={verifyOtp}
+              class="mt-2 w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition"
+            >
+              Verify OTP
+            </button>
+          </div>
+        {/if}
+
+        {#if errorMessage}
+          <p class="mt-2 text-sm text-red-600">{errorMessage}</p>
+        {/if}
+
+        {#if successMessage}
+          <p class="mt-2 text-sm text-green-600">{successMessage}</p>
+        {/if}
+      {:else}
+
       <form action="?/register" method="POST" use:enhance class="space-y-3">
         <div>
           <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
@@ -110,8 +290,9 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
           <input 
             id="email" 
             name="email" 
-            type="email" 
-            required 
+            type="email"
+            disabled 
+            value={email}
             class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             placeholder="Enter your email"
             on:blur={(e) => emailValid = validateEmail(e.currentTarget.value)}
@@ -243,8 +424,7 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
           Register
         </button>
       </form>
-
-      <p class="mt-8 text-center text-sm text-gray-600">
+      {/if}      <p class="mt-8 text-center text-sm text-gray-600">
         Already have an account? 
         <a href="/login" class="font-medium text-blue-600 hover:text-blue-500">Sign in</a>
       </p>
