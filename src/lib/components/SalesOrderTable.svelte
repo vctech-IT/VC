@@ -24,7 +24,7 @@
     let itemsPerPage = 10;
     let originalColumnOrder = [
         'date', 'salesorder_number', 'customer_name', 'reference_number', 'total',
-        'status', 'invoiced_status', 'payment_status', 'ops_status', 'shipment_date', 'order_status', 'delivery_method'
+        'order_status', 'invoiced_status', 'payment_status', 'ops_status', 'shipment_date', 'status', 'delivery_method'
     ];
     let visibleColumns = [...originalColumnOrder];
     let tempVisibleColumns: string[] = [];

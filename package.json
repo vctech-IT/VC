@@ -14,7 +14,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^3.0.0",
-		"@sveltejs/kit": "^2.0.0",
+		"@sveltejs/kit": "^2.5.18",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
 		"@types/bcrypt": "^5.0.2",
 		"@types/eslint": "^8.56.7",
@@ -29,9 +29,10 @@
 		"prisma": "^5.17.0",
 		"svelte": "^4.2.7",
 		"svelte-check": "^3.6.0",
+		"svelte-preprocess": "^6.0.2",
 		"tailwindcss": "^3.4.4",
 		"tslib": "^2.4.1",
-		"typescript": "^5.0.0",
+		"typescript": "^5.5.4",
 		"typescript-eslint": "^8.0.0-alpha.20",
 		"vite": "^5.0.3"
 	},
@@ -43,6 +44,7 @@
 		"bcrypt": "^5.1.1",
 		"chart.js": "^4.4.3",
 		"emailjs": "^4.0.3",
+		"ioredis": "^5.4.1",
 		"jspdf": "^2.5.1",
 		"jspdf-autotable": "^3.8.2",
 		"lodash-es": "^4.17.21",

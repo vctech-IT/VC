@@ -47,10 +47,10 @@
   }
 </script>
 
-<div class="max-w-2xl mx-auto mt-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-lg">
+<div class="max-w-2xl mx-auto mt-8 p-6 bg-[#00304A10] rounded-2xl shadow-lg">
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-indigo-800">Profile</h1>
-    <a href="/" class="flex items-center text-indigo-600 hover:text-indigo-800 transition duration-300">
+    <h1 class="text-3xl font-bold text-[#00304A]">Profile</h1>
+    <a href="/" class="flex items-center text-[#00304A] hover:text-[#004166] transition duration-300">
       <ArrowLeft size={20} class="mr-1" />
     </a>
   </div>
@@ -64,64 +64,64 @@
   <form method="POST" action="?/updateProfile" use:enhance={handleSubmit} enctype="multipart/form-data" class="space-y-6">
     <div class="flex items-center space-x-6 mb-6">
       <div class="relative">
-        <img src={profilePhotoPreview || user.image || 'https://th.bing.com/th/id/OIP.-BS8Y2nH1k93GJiitUVBCAHaHa?rs=1&pid=ImgDetMain'} alt="Profile" class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md" />
-        <label class="absolute bottom-0 right-0 cursor-pointer bg-indigo-600 text-white p-1.5 rounded-full hover:bg-indigo-700 transition duration-300">
+        <img src={profilePhotoPreview || user.image || 'https://th.bing.com/th/id/OIP.-BS8Y2nH1k93GJiitUVBCAHaHa?rs=1&pid=ImgDetMain'} alt="Profile" class="w-28 h-28 rounded-full object-cover border-4 border-white shadow-md" />
+        <label class="absolute bottom-0 right-0 cursor-pointer bg-[#00304A] text-white p-2 rounded-full hover:bg-[#004166] transition duration-300">
           <input type="file" name="profilePhoto" accept="image/*" class="hidden" on:change={handleFileSelect} />
-          <Upload size={16} />
+          <Upload size={18} />
         </label>
       </div>
       <div>
-        <h2 class="text-2xl font-semibold text-gray-800">{user.username}</h2>
+        <h2 class="text-2xl font-semibold text-[#00304A]">{user.username}</h2>
       </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="space-y-4">
         <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+          <label for="email" class="block text-sm font-medium text-[#00304A] mb-1 flex items-center">
             <Mail class="mr-2" size={16} />
             Email
           </label>
           <input id="email" type="email" value={user.email} disabled 
-            class="w-full p-2 bg-gray-100 rounded-lg text-gray-700 focus:outline-none" />
+            class="w-full p-2 bg-white border border-gray-300 rounded-lg text-[#00304A] focus:outline-none focus:ring-2 focus:ring-[#00304A]" />
         </div>
 
         <div>
-          <label for="phone" class="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+          <label for="phone" class="block text-sm font-medium text-[#00304A] mb-1 flex items-center">
             <Phone class="mr-2" size={16} />
             Phone
           </label>
           <input id="phone" type="tel" value={user.phoneNo} disabled 
-            class="w-full p-2 bg-gray-100 rounded-lg text-gray-700 focus:outline-none" />
+            class="w-full p-2 bg-white border border-gray-300 rounded-lg text-[#00304A] focus:outline-none focus:ring-2 focus:ring-[#00304A]" />
         </div>
       </div>
 
       <div class="space-y-4">
         <div>
-          <label for="role" class="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+          <label for="role" class="block text-sm font-medium text-[#00304A] mb-1 flex items-center">
             <Shield class="mr-2" size={16} />
             Role
           </label>
           <input id="role" type="text" value={user.role.name} disabled 
-            class="w-full p-2 bg-gray-100 rounded-lg text-gray-700 focus:outline-none" />
+            class="w-full p-2 bg-white border border-gray-300 rounded-lg text-[#00304A] focus:outline-none focus:ring-2 focus:ring-[#00304A]" />
         </div>
 
         <div>
-          <label for="createdAt" class="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+          <label for="createdAt" class="block text-sm font-medium text-[#00304A] mb-1 flex items-center">
             <Calendar class="mr-2" size={16} />
             Joined
           </label>
           <input id="createdAt" type="text" value={new Date(user.createdAt).toLocaleDateString()} disabled 
-            class="w-full p-2 bg-gray-100 rounded-lg text-gray-700 focus:outline-none" />
+            class="w-full p-2 bg-white border border-gray-300 rounded-lg text-[#00304A] focus:outline-none focus:ring-2 focus:ring-[#00304A]" />
         </div>
       </div>
     </div>
 
     {#if profilePhotoFile}
       <div class="mt-4">
-        <p class="text-sm text-indigo-600">New photo selected: {profilePhotoFile.name}</p>
+        <p class="text-sm text-[#00304A]">New photo selected: {profilePhotoFile.name}</p>
         <div class="mt-2 flex space-x-2">
-          <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-300">
+          <button type="submit" class="px-4 py-2 bg-[#00304A] text-white rounded-lg hover:bg-[#004166] transition duration-300">
             Save Photo
           </button>
           <button type="button" on:click={cancelPhotoUpload} class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-300">

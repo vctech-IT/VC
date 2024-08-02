@@ -3,6 +3,7 @@
   import { fade } from 'svelte/transition';
   import { invalidate } from '$app/navigation';
   import type { PageData } from './$types';
+  import { onMount } from 'svelte';
 
   export let data: PageData;
 
@@ -13,10 +14,6 @@
   let deleteConfirmUser: any = null;
   let deleteConfirmUsername = '';
   let isLoading = false;
-
-  function toggleTab(tab: string) {
-    activeTab = tab;
-  }
 
   function formatDate(date: Date) {
     return new Date(date).toLocaleString();
@@ -82,19 +79,46 @@
       await invalidate('app:users');
     };
   }
+
+  let showNotification = false;
+
+  onMount(() => {
+    if (pendingUsers.length > 0) {
+      showNotification = true;
+    }
+  });
+
+  function closeNotification() {
+    showNotification = false;
+  }
+
+  function toggleTab(tab: string) {
+  activeTab = tab;
+  if (tab === 'pending' && pendingUsers.length > 0) {
+    showNotification = true;
+  } else {
+    showNotification = false;
+  }
+}
 </script>
+
+
 
 <div class="container mx-auto px-4 py-8 bg-gray-100 min-h-screen">
   <h1 class="text-3xl font-semibold mb-8 text-gray-800">User Management Dashboard</h1>
 
   <div class="mb-6 bg-white shadow-md rounded-lg p-4">
     <div class="flex border-b border-gray-200">
-      <button
-        class="py-2 px-4 font-medium {activeTab === 'pending' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}"
-        on:click={() => toggleTab('pending')}
-      >
-        Pending Approvals
-      </button>
+
+    <button
+      class="py-2 px-4 font-medium relative {activeTab === 'pending' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}"
+      on:click={() => toggleTab('pending')}
+    >
+      Pending Approvals
+      {#if pendingUsers.length > 0}
+        <span class="absolute top-0 right-0 -mt-1 -mr-1 bg-red-500 text-white rounded-full text-xs px-2 py-1">{pendingUsers.length}</span>
+      {/if}
+    </button>
       <button
         class="py-2 px-4 font-medium ml-4 {activeTab === 'approved' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}"
         on:click={() => toggleTab('approved')}
@@ -291,4 +315,3 @@
   }
 </style>
 
-@

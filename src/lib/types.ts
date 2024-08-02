@@ -146,6 +146,16 @@ export interface SalesOrder {
     contact: Contact;
     balance: number;
     approvers_list: string[];
+    activityLogs?: ActivityLog[];
+}
+
+export interface ActivityLog {
+    id: string;
+    salesOrderId: string;
+    username: string;
+    role: string;
+    action: string;
+    timestamp: Date;
 }
 
 export interface Document {

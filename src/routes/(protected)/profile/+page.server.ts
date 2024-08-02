@@ -1,11 +1,21 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { PrismaClient } from '@prisma/client';
+import { redirect } from '@sveltejs/kit'
 
 const prisma = new PrismaClient();
 
 export const load: PageServerLoad = async ({ locals }) => {
   const userId = locals.user?.id;
+
+  // redirect user if not logged in
+      if (!locals.user) {
+        throw redirect(302, new URL('/login', 'http://localhost:5173').toString());
+    }
+    
+      if (!locals.user) {
+        throw redirect(302, new URL('/login', 'https://vc-tech.vercel.app/').toString());
+    }
 
   if (!userId) {
     throw error(401, 'Unauthorized');
@@ -51,7 +61,7 @@ export const actions: Actions = {
         const arrayBuffer = await profilePhoto.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
-        image = `data:${profilePhoto.type};base64,${base64Image}`;
+        image =` data:${profilePhoto.type};base64,${base64Image}`;
       }
 
       const updatedUser = await prisma.user.update({

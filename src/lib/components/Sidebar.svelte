@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '$app/stores';import { Briefcase, CheckSquare, Calendar, BarChart2, ChevronLeft, ChevronRight, LogOut, User, ReceiptIndianRupee } from 'lucide-svelte';
+  import { page } from '$app/stores';import { Briefcase, CheckSquare, Calendar, BarChart2, ChevronLeft, ChevronRight, LogOut, User, ReceiptIndianRupee, Truck } from 'lucide-svelte';
   import '../styles/app.css'
   import { applyAction, enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
@@ -20,7 +20,8 @@
   const menuItems = [
   { icon: CheckSquare, label: 'Dashboard', href: '/' },
   { icon: Briefcase, label: 'Sales Orders', href: '/salesOrder' },
-  { icon: ReceiptIndianRupee, label: 'Invoices', href: '/invoice' }
+  { icon: ReceiptIndianRupee, label: 'Invoices', href: '/invoice' },
+  { icon: Truck, label: 'Delivery Challans', href: '/deliveryChallan' }
 ];
 
   const handleNavigation = (href: string) => {

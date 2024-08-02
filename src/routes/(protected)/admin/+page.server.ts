@@ -23,9 +23,13 @@ export const load: PageServerLoad = async ({ locals, depends }) => {
     include: { role: true }
   });
 
+  const pendingUsersCount = await prisma.user.count({
+    where: { isApproved: false }
+  });
+
   const roles = await prisma.roles.findMany();
 
-  return { pendingUsers, approvedUsers, roles };
+  return { pendingUsers, approvedUsers, roles, pendingUsersCount };
 };
 
 export const actions: Actions = {

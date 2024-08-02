@@ -116,14 +116,14 @@
             <img class="h-8 w-8 rounded-full" src={user?.image || "https://static.vecteezy.com/system/resources/thumbnails/020/765/399/small/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg"} alt="User profile">
           </button>
           {#if showUserMenu}
-            <div class="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg overflow-hidden z-20">
-              <div class="p-4 bg-gray-100 border-b flex items-center">
-                <img class="h-10 w-10 rounded-full mr-3" src={user?.image || "https://static.vecteezy.com/system/resources/thumbnails/020/765/399/small/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg"} alt="User profile">
-                <h3 class="text-lg font-semibold">Hello, {user?.name || 'User'}</h3>
+            <div class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg overflow-hidden z-20">
+              <div class="p-6 bg-gray-100 border-b flex items-center">
+                <img class="h-24 w-24 rounded-full object-cover mr-4" src={user?.image || "https://static.vecteezy.com/system/resources/thumbnails/020/765/399/small/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg"} alt="User profile">
+                <h3 class="text-2xl font-semibold">Hello, <span class="font-normal">{user?.name || user?.username || 'User'}</span></h3>
               </div>
-              <div class="py-1">
-                <button on:click={viewProfile} class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                  <UserIcon class="inline-block h-4 w-4 mr-2" />
+              <div class="py-2">
+                <button on:click={viewProfile} class="block w-full text-left px-6 py-3 text-sm text-gray-700 hover:bg-gray-100">
+                  <UserIcon class="inline-block h-5 w-5 mr-3" />
                   View Profile
                 </button>
                 {#if user}
@@ -133,8 +133,8 @@
                       await applyAction(result)
                     }
                   }}>
-                    <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      <LogOut class="inline-block h-4 w-4 mr-2" />
+                    <button type="submit" class="block w-full text-left px-6 py-3 text-sm text-gray-700 hover:bg-gray-100">
+                      <LogOut class="inline-block h-5 w-5 mr-3" />
                       Sign Out
                     </button>
                   </form>
