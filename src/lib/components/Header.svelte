@@ -12,15 +12,17 @@
     title: string;
     message: string;
     time: string;
+    type: 'pending_user' | 'other';
   }
 
   let showNotifications = false;
   let showUserMenu = false;
   let notifications: Notification[] = [];
   let notificationCount = 0;
+  let isAdmin = false;
 
   $: user = $page.data.user;
-
+  $: isAdmin = user.role === 'ADMIN' || false;
   onMount(async () => {
     notifications = await fetchNotifications();
     notificationCount = notifications.length;
@@ -41,16 +43,28 @@
     goto('/profile');
   }
 
-  // Placeholder function. Replace with your actual API call
-  async function fetchNotifications(): Promise<Notification[]> {
-    return [
-      { id: 1, title: 'New Task Assigned', message: 'You have been assigned a new task: Project X Review', time: '2 hours ago' },
-      { id: 2, title: 'Meeting Reminder', message: 'Team standup in 15 minutes', time: '10 minutes ago' },
-      { id: 3, title: 'Document Update', message: 'John Doe updated the Project Y specifications', time: '1 day ago' },
-      { id: 4, title: 'New Comment', message: 'Sarah left a comment on your report', time: '2 days ago' },
-      { id: 5, title: 'Approval Required', message: 'Your leave request is pending approval', time: '3 days ago' },
-    ];
-  }
+async function fetchNotifications(): Promise<Notification[]> {
+  // Fetch pending users from the server
+  const response = await fetch('/api/pending-users');
+  const pendingUsers = await response.json();
+
+  const pendingUserNotifications = pendingUsers.map((user: any, index: any) => ({
+    id: -index - 1, // Use negative IDs to avoid conflicts with other notifications
+    title: 'Pending User Approval',
+    message: `New user ${user.username} is waiting for approval`,
+    time: formatDate(user.createdAt),
+    type: 'pending_user' as const
+  }));
+
+
+
+  return [...pendingUserNotifications];
+}
+
+function formatDate(date: string): string {
+  const d = new Date(date);
+  return d.toLocaleString();
+}
 
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -69,6 +83,26 @@
     showNotifications = false;
     showUserMenu = false;
   }
+
+onMount(() => {
+  const intervalId = setInterval(refreshNotifications, 5000); // Refresh every 5sec
+
+  return () => {
+    clearInterval(intervalId);
+  };
+});
+
+function handleNotificationClick(notification: Notification) {
+  if (notification.type === 'pending_user') {
+    goto('/admin');
+    showNotifications = false;
+  }
+}
+
+async function refreshNotifications() {
+  notifications = await fetchNotifications();
+  notificationCount = notifications.filter(n => n.type === 'pending_user').length;
+}
 </script>
 
 <svelte:window on:click={handleClickOutside} on:keydown={handleKeydown} />
@@ -101,9 +135,19 @@
               <div class="max-h-96 overflow-y-auto">
                 {#each notifications as notification (notification.id)}
                   <div class="p-4 border-b hover:bg-gray-50 transition duration-150 ease-in-out">
-                    <h4 class="text-sm font-semibold text-gray-900">{notification.title}</h4>
+                    <h4 class="text-sm font-semibold text-gray-900">
+                      {#if notification.type === 'pending_user'}
+                        <span class="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                      {/if}
+                      {notification.title}
+                    </h4>
                     <p class="text-sm text-gray-600 mt-1">{notification.message}</p>
                     <p class="text-xs text-gray-400 mt-2">{notification.time}</p>
+                    {#if notification.type === 'pending_user'}
+                      <a href="/admin" class="text-sm text-blue-500 hover:text-blue-700 mt-2 inline-block">
+                        Go to User Management
+                      </a>
+                    {/if}
                   </div>
                 {/each}
               </div>

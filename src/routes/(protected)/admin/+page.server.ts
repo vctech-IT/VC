@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { redirect, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { sendAdminNotification, sendUserApprovalNotification } from '$lib/emailService';
 
 const prisma = new PrismaClient();
 
@@ -29,6 +30,19 @@ export const load: PageServerLoad = async ({ locals, depends }) => {
 
   const roles = await prisma.roles.findMany();
 
+  // Send notification only if there are pending users
+  if (pendingUsers.length > 0) {
+    const adminUsers = await prisma.user.findMany({
+      where: { role: { name: 'ADMIN' } },
+      select: { email: true, username: true }
+    });
+
+    // Send notification to each admin with pending users' details
+    for (const admin of adminUsers) {
+      await sendAdminNotification(pendingUsers, admin.email, admin.username);
+    }
+  }
+
   return { pendingUsers, approvedUsers, roles, pendingUsersCount };
 };
 
@@ -41,10 +55,12 @@ export const actions: Actions = {
     const data = await request.formData();
     const userId = data.get('userId') as string;
     
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { isApproved: true }
     });
+
+    await sendUserApprovalNotification(updatedUser.email, updatedUser.username)
 
     return { success: true };
   },
