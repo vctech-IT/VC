@@ -4,7 +4,7 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = twilio(accountSid, authToken);
 
-export async function sendWhatsAppNotification(pendingUsers, adminPhoneNumber: string, adminUsername: string, adminEmail: string) {
+export async function sendWhatsAppNotification(pendingUsers, adminPhoneNumber: string, adminUsername: string) {
   const message = `
     Hello ${adminUsername},
 
@@ -33,20 +33,3 @@ export async function sendWhatsAppNotification(pendingUsers, adminPhoneNumber: s
   }
 }
 
-export async function sendUserApprovalNotification(userPhoneNumber: string, username: string) {
-  const message = `Hello ${username}, your account has been approved! You can now log in and start using the platform.`;
-
-  try {
-    const twilioMessage = await client.messages.create({
-      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-      to: `whatsapp:+91${userPhoneNumber}`,
-      body: message
-    });
-
-    console.log(`Approval WhatsApp message sent to ${username}: ${twilioMessage.sid}`);
-    return twilioMessage;
-  } catch (error) {
-    console.error(`Failed to send WhatsApp message to ${username}:`, error);
-    throw error;
-  }
-}

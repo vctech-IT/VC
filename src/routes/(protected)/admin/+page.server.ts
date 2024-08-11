@@ -41,7 +41,7 @@ export const load: PageServerLoad = async ({ locals, depends }) => {
     for (const admin of adminUsers) {
       for (const pendingUser of pendingUsers) {
         try {
-          await sendWhatsAppNotification(pendingUser, admin.phoneNo, admin.username, admin.email);
+          await sendWhatsAppNotification(pendingUser, admin.phoneNo, admin.username);
         } catch (error) {
           console.error(`Failed to send WhatsApp notification to ${admin.username} for user ${pendingUser.username}:`, error);
         }
