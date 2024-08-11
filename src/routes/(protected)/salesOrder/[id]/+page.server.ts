@@ -37,6 +37,8 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
     const data = await response.json();
     const salesOrder: SalesOrder = data.salesorder;
 
+
+
         // Fetch activity logs from your database
          const activityLogs = await db.activityLog.findMany({
         where: { salesOrderId: salesOrder.salesorder_number },

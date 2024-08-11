@@ -4,23 +4,24 @@
     import { goto } from '$app/navigation';
     import { fade } from 'svelte/transition';
     import { Cog, CheckCircle, AlertCircle, XCircle } from 'lucide-svelte';
-    import { ChevronLeft, ChevronRight } from 'lucide-svelte';
     import { jsPDF } from "jspdf";
     import "jspdf-autotable";
     import * as XLSX from 'xlsx';
 
     export let orders: SalesOrder[] = [];
+    export let currentPage = 1;
+    export let totalPages = 1;
     export let totalCount = 0;
 
     let isFilterOpen = false;
-    let currentPage = 1;
-    let ordersPerPage = 50;
     let activeFilters: { [key: string]: string[] } = {};
 
     let filterMenuRef: HTMLDivElement;
 
     let searchTerm = '';
     let filteredOrders: SalesOrder[] = [];
+    let paginatedOrders: SalesOrder[] = [];
+    let itemsPerPage = 10;
     let originalColumnOrder = [
         'date', 'salesorder_number', 'customer_name', 'reference_number', 'total',
         'order_status', 'invoiced_status', 'payment_status', 'ops_status', 'shipment_date', 'status', 'delivery_method'
@@ -37,13 +38,6 @@
 
     const dispatch = createEventDispatcher();
 
-    $: paginatedOrders = orders.slice((currentPage - 1) * ordersPerPage, currentPage * ordersPerPage);
-    $: totalPages = Math.ceil(orders.length / ordersPerPage);
-
-    function changePage(newPage: number) {
-        currentPage = newPage;
-    }
-
     function toggleFilter(event: MouseEvent) {
     event.stopPropagation();
     isFilterOpen = !isFilterOpen;
@@ -56,6 +50,7 @@
             return values.includes(order[column]);
         });
     });
+    updatePagination();
     isFilterOpen = false;
 }
 
@@ -92,35 +87,36 @@
                 normalizeString(order.salesorder_number).includes(normalizeString(orderNumber))
             );
         }
+
+        currentPage = 1; // Reset to first page when searching
+        updatePagination();
     }
 
     $: {
         handleSearch();
     }
 
-    function goToPage(page: number) {
-        if (page >= 1 && page <= totalPages) {
-            currentPage = page;
-        }
-    }
-
-    let pageInput = currentPage;
-
-    function handlePageInputChange() {
-        const page = parseInt(pageInput.toString(), 10);
-        if (!isNaN(page)) {
-            goToPage(page);
-        }
-    }
-
-    $: {
-        pageInput = currentPage;
+    function updatePagination() {
+        totalCount = filteredOrders.length;
+        totalPages = Math.ceil(totalCount / itemsPerPage);
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalCount);
+        paginatedOrders = filteredOrders.slice(startIndex, endIndex);
     }
 
     async function handleRowClick(order: SalesOrder) {
         isLoading = true;
         await goto(`/salesOrder/${order.salesorder_id}`);
         isLoading = false;
+    }
+
+    async function changePage(newPage: number) {
+        if (newPage >= 1 && newPage <= totalPages) {
+            currentPage = newPage;
+            updatePagination();
+            await goto(`?page=${currentPage}`);
+        }
     }
 
     function formatDate(date: Date): string {
@@ -308,6 +304,7 @@
         visibleColumns.forEach(column => {
         activeFilters[column] = [];
         });
+        updatePagination();
         isLoading = false;
         document.addEventListener('click', handleClickOutside);
         document.addEventListener('keydown', handleKeyDown);
@@ -490,40 +487,58 @@
         </table>
     </div>
     
-        <div class="mt-6 flex justify-center items-center space-x-4">
-        <button
-            class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            on:click={() => goToPage(currentPage - 1)}
-            disabled={currentPage === 1}
-        >
-            <ChevronLeft size={20} />
-        </button>
-
-        <div class="flex items-center space-x-2">
-            <input
-                type="number"
-                bind:value={pageInput}
-                on:change={handlePageInputChange}
-                min="1"
-                max={totalPages}
-                class="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <span class="text-gray-600">of {totalPages}</span>
+    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-blue-200 sm:px-6 mt-4 rounded-lg shadow">
+        <div class="flex-1 flex justify-between sm:hidden">
+            <button 
+                class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                disabled={currentPage === 1} 
+                on:click={() => changePage(currentPage - 1)}
+            >
+                Previous
+            </button> 
+            <button 
+                class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                disabled={currentPage === totalPages} 
+                on:click={() => changePage(currentPage + 1)}
+            >
+                Next
+            </button>
+        </div> 
+         <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between"> 
+             <div>
+                <p class="text-sm text-gray-700">
+                    Showing <span class="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span class="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of <span class="font-medium">{totalCount}</span> results
+                </p>
+            </div> 
+             <div> 
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination"> 
+                    <button 
+                        class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        disabled={currentPage === 1} 
+                        on:click={() => changePage(currentPage - 1)}
+                    >
+                        <span class="sr-only">Previous</span>
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                    </button> 
+                    <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                        {currentPage}
+                    </span> 
+                    <button 
+                        class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        disabled={currentPage === totalPages} 
+                        on:click={() => changePage(currentPage + 1)}
+                    >
+                        <span class="sr-only">Next</span>
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                        </svg>
+                    </button> 
+                </nav>
+             </div> 
         </div>
-
-        <button
-            class="px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            on:click={() => goToPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-        >
-            <ChevronRight size={20} />
-        </button>
     </div>
-
-    <div class="mt-2 text-center text-sm text-gray-600">
-        Showing {(currentPage - 1) * ordersPerPage + 1} - {Math.min(currentPage * ordersPerPage, orders.length)} of {orders.length} orders
-    </div>
-
     
     {#if isLoading}
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
@@ -558,13 +573,4 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
-           
-    input[type="number"]::-webkit-inner-spin-button,
-    input[type="number"]::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-    }
-    input[type="number"] {
-        -moz-appearance: textfield;
-    }
     </style>

@@ -35,12 +35,8 @@
   let customizeButtonRef: HTMLButtonElement;
   let downloadButtonRef: HTMLButtonElement;
 
-  let currentPage = 1;
-  let itemsPerPage = 10;
-  let totalPages = 1;
-  let totalCount = 0;
   let filteredInvoices: Invoice[] = [];
-  let paginatedInvoices: Invoice[] = [];
+
 
   onMount(async () => {
     try {
@@ -49,7 +45,6 @@
       const data = await response.json();
       invoices = data.invoices;
       filteredInvoices = [...invoices];
-      updatePagination();
     } catch (e: any) {
       error = e.message;
     } finally {
@@ -103,30 +98,12 @@
         normalizeString(invoice.invoice_number).includes(normalizeString(invoiceNumber))
       );
     }
-
-    currentPage = 1; // Reset to first page when searching
-    updatePagination();
   }
 
   $: {
     handleSearch();
   }
 
-  function updatePagination() {
-    totalCount = filteredInvoices.length;
-    totalPages = Math.ceil(totalCount / itemsPerPage);
-    currentPage = Math.min(Math.max(1, currentPage), totalPages);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage, totalCount);
-    paginatedInvoices = filteredInvoices.slice(startIndex, endIndex);
-  }
-
-  function changePage(newPage: number) {
-    if (newPage >= 1 && newPage <= totalPages) {
-      currentPage = newPage;
-      updatePagination();
-    }
-  }
 
   function toggleDownloadOptions(event: MouseEvent) {
     event.stopPropagation();
@@ -311,7 +288,7 @@
     </div>
   </div>
 
-  {#if paginatedInvoices.length === 0}
+  {#if filteredInvoices.length === 0}
     <p>No invoices found.</p>
   {:else}
     <div class="overflow-x-auto bg-white shadow-md rounded-lg">
@@ -324,7 +301,7 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-blue-100">
-          {#each paginatedInvoices as invoice, index (invoice.invoice_number)}
+          {#each filteredInvoices as invoice, index (invoice.invoice_number)}
             <tr 
               class="hover:bg-blue-50 cursor-pointer transition-colors duration-200 {index % 2 === 0 ? 'bg-blue-50' : 'bg-white'}"
               transition:fade
@@ -352,60 +329,6 @@
         </tbody>
       </table>
     </div>
-
-    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-blue-200 sm:px-6 mt-4 rounded-lg shadow">
-      <div class="flex-1 flex justify-between sm:hidden">
-        <button 
-          class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          disabled={currentPage === 1} 
-          on:click={() => changePage(currentPage - 1)}
-          >
-            Previous
-          </button> 
-          <button 
-            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            disabled={currentPage === totalPages} 
-            on:click={() => changePage(currentPage + 1)}
-          >
-            Next
-          </button>
-        </div> 
-        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between"> 
-          <div>
-            <p class="text-sm text-gray-700">
-              Showing <span class="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span class="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of <span class="font-medium">{totalCount}</span> results
-            </p>
-          </div> 
-          <div> 
-            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination"> 
-              <button 
-                class="relative inline-flex items-center px-2 py-2
-                rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                disabled={currentPage === 1} 
-                on:click={() => changePage(currentPage - 1)}
-              >
-                <span class="sr-only">Previous</span>
-                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button> 
-              <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                {currentPage}
-              </span> 
-              <button 
-                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                disabled={currentPage === totalPages} 
-                on:click={() => changePage(currentPage + 1)}
-              >
-                <span class="sr-only">Next</span>
-                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button> 
-            </nav>
-          </div> 
-        </div>
-      </div>
     {/if}
   {/if}
 </div>

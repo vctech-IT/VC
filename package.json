@@ -27,6 +27,7 @@
 		"prettier": "^3.1.1",
 		"prettier-plugin-svelte": "^3.1.2",
 		"prisma": "^5.17.0",
+		"sass": "^1.77.8",
 		"svelte": "^4.2.7",
 		"svelte-check": "^3.6.0",
 		"svelte-hero-icons": "^5.2.0",
@@ -42,7 +43,10 @@
 		"@emailjs/browser": "^4.4.1",
 		"@emailjs/nodejs": "^4.0.4",
 		"@prisma/client": "^5.17.0",
+		"@sendgrid/mail": "^8.1.3",
+		"@skeletonlabs/skeleton": "^2.10.2",
 		"@zerodevx/svelte-toast": "^0.9.5",
+		"apexcharts": "^3.52.0",
 		"bcrypt": "^5.1.1",
 		"chart.js": "^4.4.3",
 		"emailjs": "^4.0.3",
@@ -52,7 +56,11 @@
 		"lodash-es": "^4.17.21",
 		"lucide-svelte": "^0.408.0",
 		"nodemailer": "^6.9.14",
+		"svelte-apexcharts": "^1.0.2",
 		"svelte-chartjs": "^3.1.5",
+		"svelte-dnd-action": "^0.9.49",
+		"svelte-forms-lib": "^2.0.1",
+		"svelte-frappe-charts": "^1.10.0",
 		"svelte-french-toast": "^1.2.0",
 		"svelte-headlessui": "^0.0.42",
 		"svelte-lucide": "^1.0.6",
@@ -60,6 +68,7 @@
 		"svelte-simple-modal": "^1.6.2",
 		"svelte-tooltip": "^1.2.0",
 		"swiper": "^11.1.4",
+		"twilio": "^5.2.2",
 		"xlsx": "^0.18.5"
 	}
 }
