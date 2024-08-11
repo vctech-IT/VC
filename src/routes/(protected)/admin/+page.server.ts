@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 import { redirect, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { sendAdminNotification, sendUserApprovalNotification } from '$lib/emailService';
-import { sendWhatsAppNotification } from '$lib/whatsappServices';
 
 const prisma = new PrismaClient();
 
@@ -39,14 +38,6 @@ export const load: PageServerLoad = async ({ locals, depends }) => {
     });
 
     for (const admin of adminUsers) {
-      for (const pendingUser of pendingUsers) {
-        try {
-          await sendWhatsAppNotification(pendingUser, admin.phoneNo, admin.username);
-        } catch (error) {
-          console.error(`Failed to send WhatsApp notification to ${admin.username} for user ${pendingUser.username}:`, error);
-        }
-      }
-
       await sendAdminNotification(pendingUsers, admin.email, admin.username);
     }
   }
