@@ -12,7 +12,6 @@ declare global {
 					createdAt: Date
 					phoneNo: string
 					image: string
-					status: string
 				}
 			}
 		interface PageData {
@@ -23,7 +22,6 @@ declare global {
 				email: string;
 				createdAt: Date;
 				role: string;
-				status: string;
 				image: string;
 			}
 		}

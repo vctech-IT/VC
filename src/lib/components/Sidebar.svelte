@@ -20,6 +20,7 @@
   const menuItems = [
   { icon: CheckSquare, label: 'Dashboard', href: '/' },
   { icon: Briefcase, label: 'Sales Orders', href: '/salesOrder' },
+  { icon: Briefcase, label: 'Sales Orders Ref', href: '/salesOrderRef' },
   { icon: ReceiptIndianRupee, label: 'Invoices', href: '/invoice' },
   { icon: Truck, label: 'Delivery Challans', href: '/deliveryChallan' }
 ];

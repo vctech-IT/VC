@@ -147,6 +147,7 @@ export interface SalesOrder {
     balance: number;
     approvers_list: string[];
     activityLogs?: ActivityLog[];
+    opsStatus: number | null;
 }
 
 export interface ActivityLog {
