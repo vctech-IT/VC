@@ -1,30 +1,81 @@
-<!-- components/Modal.svelte -->
 <script lang="ts">
-import { fade, fly } from 'svelte/transition';
-import { createEventDispatcher } from 'svelte'
-export let title: string;
+  import { fade, fly } from 'svelte/transition';
+  import { createEventDispatcher, onMount } from 'svelte';
+  import { quintOut } from 'svelte/easing';
 
-const dispatch = createEventDispatcher();
+  export let title: string;
+  export let size: 'sm' | 'md' | 'lg' | 'xl' = 'md';
 
-function close() {
-  dispatch('close');
-}
+  const dispatch = createEventDispatcher();
+  
+  function close() {
+    dispatch('close');
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      close();
+    }
+  }
+
+  function handleOutsideClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      close();
+    }
+  }
+
+  onMount(() => {
+    document.addEventListener('keydown', handleKeydown);
+    return () => {
+      document.removeEventListener('keydown', handleKeydown);
+    };
+  });
+
+  const sizeClasses = {
+    sm: 'sm:max-w-md',
+    md: 'sm:max-w-lg',
+    lg: 'sm:max-w-2xl',
+    xl: 'sm:max-w-4xl'
+  };
 </script>
 
-<div class="fixed inset-0 bg-black bg-opacity-50 z-50" on:click={close} transition:fade={{duration: 200}}></div>
-
-<div class="fixed inset-0 flex items-center justify-center z-50" transition:fade={{duration: 200}}>
-  <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto" transition:fly={{y: 200, duration: 200}}>
-    <div class="flex justify-between items-center p-4 border-b">
-      <h3 class="text-xl font-semibold">{title}</h3>
-      <button class="text-gray-500 hover:text-gray-700" on:click={close}>
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-      </button>
-    </div>
-    <div class="p-4">
-      <slot></slot>
+<div class="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity z-50" 
+     on:click={handleOutsideClick} 
+     transition:fade={{duration: 200}}>
+  <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+    <div class="relative inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full {sizeClasses[size]}"
+         transition:fly={{y: 50, duration: 300, easing: quintOut}}>
+      <div class="absolute top-0 right-0 pt-4 pr-4">
+        <button type="button" 
+                class="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                on:click={close}>
+          <span class="sr-only">Close</span>
+          <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="sm:flex sm:items-start">
+          <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+            <h3 class="text-lg leading-6 font-semibold text-gray-900" id="modal-title">
+              {title}
+            </h3>
+            <div class="mt-4">
+              <slot></slot>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <slot name="footer">
+          <button type="button" 
+                  class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm transition duration-150 ease-in-out"
+                  on:click={close}>
+            Close
+          </button>
+        </slot>
+      </div>
     </div>
   </div>
 </div>

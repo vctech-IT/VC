@@ -12,6 +12,7 @@
     import { logStore, type LogEntry } from '../../../../lib/stores/LogStore';
     import { fly } from 'svelte/transition';
     import { Clock, User, Activity } from 'svelte-lucide';
+    import { invalidate } from '$app/navigation';
 
     export let data: PageData;
 
@@ -21,12 +22,30 @@
     expandedLog = expandedLog === logId ? null : logId;
   }
 
+    let showMenuDropdown = false;
+
+    function toggleMenuDropdown() {
+        showMenuDropdown = !showMenuDropdown;
+    }
+
   function getActionIcon(action: string) {
     if (action.toLowerCase().includes('updated')) return 'pencil';
     if (action.toLowerCase().includes('created')) return 'plus-circle';
     if (action.toLowerCase().includes('deleted')) return 'trash-2';
     return 'activity';
   }
+
+  function getCurrentStageText(stage: number | undefined): string {
+    switch(stage) {
+        case 0: return 'Site Not Ready';
+        case 1: return 'Logistic';
+        case 2: return 'Material to Procure';
+        case 3: return 'Ongoing';
+        case 4: return 'Return Pickup';
+        case 5: return 'Share With Account';
+        default: return 'Update Status';
+    }
+}
 
     let currentUsername = data.user.name;
     let currentUserRole = data.user.role;
@@ -88,7 +107,7 @@
     }
 
     function goBack() {
-        window.history.length > 1 ? window.history.back() : goto('/');
+        goto('/salesOrder');
     }
 
     function downloadDocument(doc: any) {
@@ -106,6 +125,8 @@
 
   let salesOrderLogs: LogEntry[] = [];
   let Stage0Data: any;
+  let Stage3Data: any;
+  let Stage4Data: any;
 
   
 
@@ -149,6 +170,76 @@ function formatLogDate(dateString: Date) {
   }
 
   
+    async function getToken(fetch: typeof globalThis.fetch): Promise<string> {
+        const tokenResponse = await fetch('/api/zohoAuthToken');
+        const { token } = await tokenResponse.json();
+        return token;
+    }
+
+async function handleDropSalesOrder() {
+    if (confirm('Are you sure you want to drop this sales order? This action cannot be undone.')) {
+        try {
+            // Update the database
+            const updateResponse = await fetch(`/api/salesorder/${encodeURIComponent(salesOrder.salesorder_number)}/drop`, {
+                method: 'POST',
+            });
+
+            if (!updateResponse.ok) {
+                throw new Error('Failed to update database');
+            }
+
+            // Mark as void in Zoho
+            // const token = await getToken(fetch);
+            // const voidResponse = await fetch(`https://www.zohoapis.in/books/v3/salesorders/${salesOrder.salesorder_id}/status/void?organization_id=60005679410`, {
+            //     method: 'POST',
+            //     headers: {
+            //         'Authorization': `Zoho-oauthtoken ${token}`,
+            //         'Content-Type': 'application/json',
+            //     },
+            //     body: JSON.stringify({}), // Add any required fields here
+            // });
+
+            // if (!voidResponse.ok) {
+            //     throw new Error('Failed to void sales order in Zoho');
+            // }
+
+            // Refresh the page data
+            await invalidate(`/sales-order/${encodeURIComponent(salesOrder.salesorder_number)}`);
+
+            alert('Sales order has been dropped successfully');
+        } catch (error) {
+            console.error('Error dropping sales order:', error);
+            alert('Failed to drop sales order. Please try again.');
+        }
+    }
+}
+let dropdownRef: HTMLDivElement;
+
+function closeDropdown() {
+    showMenuDropdown = false;
+}
+
+function handleClickOutside(event: MouseEvent) {
+    if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
+        closeDropdown();
+    }
+}
+
+function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+        closeDropdown();
+    }
+}
+
+onMount(() => {
+    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('keydown', handleKeydown);
+
+    return () => {
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('keydown', handleKeydown);
+    };
+});
 
   
 </script>
@@ -157,48 +248,62 @@ function formatLogDate(dateString: Date) {
     <div class="max-w-6xl mx-auto">
         <div class="bg-white shadow-xl rounded-lg overflow-hidden">
             <!-- Header -->
-            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex flex-col sm:flex-row justify-between items-center">
-                <div class="flex items-center mb-4 sm:mb-0">
+<div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+    <div class="flex flex-col sm:flex-row justify-between items-center">
+        <div class="flex items-center mb-4 sm:mb-0">
+            <button 
+                class="mr-4 text-white hover:bg-blue-700 rounded-full p-2 transition duration-300 ease-in-out"
+                on:click={goBack}
+                aria-label="Go back"
+            >
+                <ArrowLeft size={24} />
+            </button>
+            <h1 class="text-2xl font-bold text-white">Sales Order: {salesOrder.salesorder_number}</h1>
+        </div>
+        <div class="flex items-center space-x-3">
+            <span class="px-4 py-2 rounded-full text-sm font-medium bg-white {getStatusColor(salesOrder.status)}">
+                {salesOrder.status}
+            </span>
+            {#if salesOrder.status == 'open' && !data.isDropped}
+            <button 
+                class="bg-white text-blue-600 hover:bg-blue-50 font-medium py-2 px-4 rounded-full shadow-sm hover:shadow transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex items-center"
+                on:click={toggleStageUpdateModal}
+            >
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <span>{getCurrentStageText(currentStage?.currentStage)}</span>
+            </button> 
+            {/if}
+            <div class="relative" bind:this={dropdownRef}>
+                {#if salesOrder.status == 'open' && data.user.role == 'ADMIN'}
                     <button 
-                        class="mr-4 text-white hover:bg-blue-700 rounded-full p-2 transition duration-300 ease-in-out"
-                        on:click={goBack}
-                        aria-label="Go back"
+                        class="bg-white text-blue-600 hover:bg-blue-50 font-medium py-2 px-3 rounded-full shadow-sm hover:shadow transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                        on:click|stopPropagation={toggleMenuDropdown}
+                        aria-haspopup="true"
+                        aria-expanded={showMenuDropdown}
                     >
-                        <ArrowLeft size={24} />
+                        <ChevronDown size={20} />
                     </button>
-                    <h1 class="text-2xl font-bold text-white">Sales Order: {salesOrder.salesorder_number}</h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="px-3 py-1 rounded-full text-sm font-semibold bg-white {getStatusColor(salesOrder.status)}">
-                        {salesOrder.status}
-                    </span>
-<button 
-    class="bg-white text-[#3c53e7] hover:bg-gray-100 font-semibold py-2.5 px-5 rounded-md shadow-sm hover:shadow transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
-    on:click={toggleStageUpdateModal}
->
-    <span class="flex items-center">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        {#if currentStage && currentStage.currentStage === 0}
-            Site Not Ready
-        {:else if currentStage && currentStage.currentStage === 1}
-            Logistic
-        {:else if currentStage && currentStage.currentStage === 2}
-            Material to Procure
-        {:else if currentStage && currentStage.currentStage === 3}
-            Ongoing
-        {:else if currentStage && currentStage.currentStage === 4}
-            Return Pickup
-        {:else if currentStage && currentStage.currentStage === 5}
-            Share With Account
-        {:else}
-            Update Status
-        {/if}
-    </span>
-</button>
-                </div>
+                {/if}
+                {#if showMenuDropdown}
+                    <div 
+                        class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+                        transition:fly="{{ y: -10, duration: 200 }}"
+                    >
+                    <button 
+                        class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-100 focus:outline-none focus:bg-red-100 transition duration-150 ease-in-out"
+                        on:click={handleDropSalesOrder}
+                        disabled={data.isDropped}
+                    >
+                        {data.isDropped ? 'Sales Order Dropped' : 'Drop Sales Order'}
+                    </button>
+                    </div>
+                {/if}
             </div>
+        </div>
+    </div>
+</div>
 
             <div class="p-6 space-y-8">
                 <!-- Order Summary -->
@@ -226,6 +331,8 @@ function formatLogDate(dateString: Date) {
                         <h2 class="text-lg font-semibold text-blue-800 mb-2">Order Info</h2>
                         <p><strong>SO #:</strong> {salesOrder.salesorder_number}</p>
                         <p><strong>Ref#:</strong> {salesOrder.reference_number}</p>
+                        <p><strong>SO Category:</strong> {salesOrder.custom_field_hash.cf_so_cat}</p>
+                        <p><strong>Project Manager Name:</strong> {salesOrder.custom_field_hash.cf_project_manager_name}</p>
                         <p><strong>Delivery Method:</strong> {salesOrder.delivery_method || 'N/A'}</p>
                         <p><strong>Place of Supply:</strong> {salesOrder.place_of_supply}</p>
                         <p><strong>Date:</strong> {formatDate(salesOrder.submitted_date)}</p>
@@ -336,13 +443,26 @@ function formatLogDate(dateString: Date) {
        
 
 {#if showStageUpdateModal}
-    <!-- svelte-ignore missing-declaration -->
-    <StageUpdateModal
-        {Stage0Data} 
-        {salesOrder} 
-        {data}
-        username={currentUsername}
-        userRole={currentUserRole}
-        on:close={toggleStageUpdateModal}
-    />
+  <StageUpdateModal
+    username={data.user.name}
+    userRole={data.user.role}
+    currentStage={currentStage?.currentStage ?? null}
+    data={{
+      user: {
+        name: data.user.name,
+        role: data.user.role,
+        email: data.user.email,
+        id: data.user.id,
+        createdAt: data.user.createdAt,
+        phoneNo: data.user.phoneNo,
+        image: data.user.image,
+        status: data.user.status
+      }
+    }}
+    salesOrder={salesOrder}
+    Stage0Data={Stage0Data}
+    Stage3Data={Stage3Data}
+    Stage4Data={Stage4Data}
+    on:close={toggleStageUpdateModal}
+  />
 {/if}

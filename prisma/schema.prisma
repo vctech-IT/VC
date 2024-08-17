@@ -38,6 +38,7 @@ model Roles{
 
 model Stage0 {  
   SONumber     String     @id @map("_id")
+  SOId         String?
   isDropped    Boolean    @default(false)
   currentStage Int
   clientName   String       
@@ -53,32 +54,66 @@ model Stage0 {
   Installation Installation[]
   Service      Service[]
   Stage4       Stage4[]
+  Stage5       Stage5[]
   activityLogs   ActivityLog[]
 }
 
 model Stage1 {
   DCid            String    @id @default(auto()) @map("_id") @db.ObjectId
   SONumber        String   
+  dcDetails       DcDetails[]
   DCNumber        String 
-  Status          String
+  status          String
   PODNo           String
   DispatchDate    DateTime
   EstdDeliveryDate    DateTime
-  DCAmount        Float
-  Attachment      String?
+  dcAmount        Float
+  attachment      String?
+  lineItemCount     Int
+  isSaved           Boolean
+  lineItemIndices   Int[]
+  fileName          String
+  filePreviewUrl    String?
+  billType          BillType    
+  isTypeSet         Boolean
   submittedOn     DateTime   @default(now())
-  SONo            Stage0  @relation(fields: [SONumber], references: [SONumber])
+  SONo            Stage0  @relation(fields: [SONumber],references: [SONumber])
+}
+
+model DcDetails {
+  DCid             String @id @map("_id") @db.ObjectId
+  dcNumber         String
+  customerName     String
+  companyName      String
+  dcDate           DateTime
+  total            Float
+  status           String
+  challanStatus    String
+  referenceNumber  String
+  branchName       String
+  stage1           Stage1 @relation(fields: [DCid], references: [DCid])
+}
+
+enum BillType {
+  DC
+  E_way
 }
 
 model LineItems{
-  Itemid          String      @id @default(auto()) @map("_id") @db.ObjectId
-  SONumber        String
-  ItemName        String
-  Quantity        Int
-  Unit            String
-  Rate            Float
-  Amount          Float
-  Status          String
+  Itemid          String      @id @map("_id")
+  SONumber        String 
+  name            String
+  quantity        Int
+  unit            String
+  rate            Float
+  amount          Float
+  status          String
+  isAvailabilityFrozen  String
+  needToPurchaseLocally   Boolean
+  isAvailable  Boolean
+  serialNo     String?
+  invoiceNo    String?
+  attachment   String?
   SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
 
@@ -90,6 +125,7 @@ model Installation {
   VendorName        String
   InstallationRem   String
   InstReport        String?
+  activeTab         String
   submittedOn       DateTime   @default(now())
   SONo              Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
@@ -101,17 +137,18 @@ model Service {
   MobNo             String
   VendorName        String
   ServiceRem        String
-  ServiceReport     String?
+  ServiceReport     String?  
   Serticketid       String
+  activeTab         String
   submittedOn       DateTime   @default(now())
   SONo              Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
 
 model Stage4{
   SONumber        String     @id @map("_id")
-  Name            String
-  MobNo           String
-  ProjMngRemark   String
+  ReturnPickupName     String
+  ReturnPickupMobile   String
+  ReturnPickupRemark   String
   DCNumber        String?
   CourierTrackNo  String?
   DCAmount        Float?
@@ -119,6 +156,20 @@ model Stage4{
   DeliveryDate    DateTime?  
   Remark          String?
   Attachment      String?
+  fileName        String?
+  SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
+}
+
+model Stage5{
+  SONumber      String     @id @map("_id")
+  accStatus     String     
+  rejected      Boolean?
+  rejectionRemark  String?
+  accountRemark String?
+  retaccStatus     String?     
+  retrejected      Boolean?
+  retrejectionRemark  String?
+  retaccountRemark String?
   SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
 

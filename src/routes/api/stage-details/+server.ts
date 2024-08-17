@@ -22,6 +22,7 @@ export const POST: RequestHandler = async ({ request }) => {
       },
       select: {
         SONumber: true,
+        SOId: true,
         clientName: true,
         Total: true,
         SOCategory: true,
@@ -30,7 +31,6 @@ export const POST: RequestHandler = async ({ request }) => {
         createdAt: true
       },
       orderBy: { createdAt: 'desc' },
-      take: 100 // Limit to 100 orders, adjust as needed
     });
 
     return json({ orders });

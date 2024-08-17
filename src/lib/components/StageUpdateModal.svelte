@@ -12,72 +12,117 @@
   // Add these properties
   export let username: string;
   export let userRole: string;
-  let pendingChanges: PendingChange[] = [];
-  let showConfirmationPopup: boolean;
-  let shipments: any[] = [{ isSaved: false, activeTab: 'installation', rejected: false, rejectionRemark: '' }];
+  export let currentStage: number | null;
+  export let data: PageData;
+  export let salesOrder: SalesOrder;
+  const dispatch = createEventDispatcher();
 
-  // Share with account related variables
-  let accountStatus = '';
-  let accountRemark = '';
-  let showRejectionAlert = false;
-  let canEditOngoing = false;
-  let canEditReturnPickup = false;
+$: console.log('Current stage in modal:', currentStage);
+let moveStage=currentStage;
+$: console.log('Move stage in modal:', moveStage);
+
+export let Stage0Data: any;
+export let lineItemsWithStatus: LineItem[]=[];
+export let dcBoxes: DCBox[]=[];
+export let Stage3Data: any;
+export let Stage4Data: any;
+
+
+onMount(async () => {
+  if (currentStage !== null && currentStage !== 0) {
+    console.log("R u inside func");
+    await fetchPreviousStagesData();
+
+    console.log(" 0 DATA- ", Stage0Data);
+    console.log(" itms DATA- ", lineItemsWithStatus);
+    console.log(" dc DATA- ", dcBoxes);
+    console.log(" 3 DATA- ", Stage3Data);
+    console.log("hey");
+  }})
+
+$: if (currentStage === null) {
+  currentStage = moveStage= 0;
+  Stage0Data = {
+      SONumber: salesOrder.salesorder_number,
+      SOId: salesOrder.salesorder_id,
+      clientName: salesOrder.customer_name,
+      SubTotal: salesOrder.sub_total,
+      Total: salesOrder.total,
+      SOCategory: salesOrder.custom_field_hash.cf_so_cat,
+      projectManagerName: salesOrder.custom_field_hash.cf_project_manager_name,
+      clientExpectedDate: ''
+  };
+  lineItemsWithStatus= salesOrder.line_items.map(item => ({
+    Itemid: item.line_item_id || '',  
+    SONumber: salesOrder.salesorder_number,
+    isAvailabilityFrozen: 'false',   
+    isAvailable: false,   
+    needToPurchaseLocally: false,          
+    name: item.name || item.group_name,  
+    quantity: item.quantity,
+    unit: item.unit,
+    rate: item.rate,
+    amount: item.item_total,
+    status: '',
+  }));
+  dcBoxes = [{
+        dcDetails: { dcNumber: '', customerName: '', companyName: '', dcDate: '', total: '', status: '', challanStatus: '', referenceNumber: '', branchName: '' },
+        SONumber: salesOrder.salesorder_number,
+        DCNumber: '',
+        status: '',
+        PODNo: '',
+        DispatchDate: '',
+        EstdDeliveryDate: '',
+        dcAmount: 0,
+        attachment: '',
+        lineItemCount: 0,
+        isSaved: false,
+        lineItemIndices: [],
+        fileName: '',
+        filePreviewUrl: null,
+        billType: 'DC', // Default to DC
+        isTypeSet: false, 
+    }];
+    Stage3Data = {
+      SONumber: salesOrder.salesorder_number,
+      engName: '',
+      ScheduleDate: '',
+      MobNo: '',
+      VendorName: '',
+      Remark: '',
+      Report: '',
+      Ticketid: '',
+      activeTab:'installation'
+    };
+    Stage4Data = {
+    SONumber: salesOrder.salesorder_number,
+    ReturnPickupName : '',
+    ReturnPickupMobile : '',
+    ReturnPickupRemark : '',
+    DCNumber:'',
+    CourierTrackNo:'',
+    DCAmount:'',
+    DispatchDate:'',
+    DeliveryDate:'',
+    Remark:'',
+    Attachment:''
+  }
+}
 
   let showDetailsPopup = false;
   let selectedDcDetails: DcBox['dcDetails'] | null = null;
-
-  interface PendingChange {
-  fieldName: string;
-  newValue: string;
-  fieldType: 'dropdown' | 'date' | 'text' | 'other';
-}
-
-  let returnPickup = {
-    name: '',
-    mobile: '',
-    remark: '',
-    file: null as File | any,
-    fileName: '',
-    filePreviewUrl: null as string | null,
-    isSaved: false,
-    isDataSaved: false,
-    rejected: false,
-    rejectionRemark: '',
-    accountStatus: '',
-    accountRemark: '',
-    isEditing: false,
-    dcNumber: '',
-    trackingNo: '',
-    dcAmount: '',
-    dispatchedDate: '',
-    deliveryDate: '',
-    dcaccountRemark: ''
-  };
-
-  let returnPickupRequested = false;
-  let showReturnPickupConfirmation = false;
-  let returnPickupDetailsSaved = false;
-  let returnPickupName = '';
-  let returnPickupMobile = '';
-  let returnPickupRemark = '';
 
     function openDetailsPopup(details: DcBox['dcDetails']) {
     selectedDcDetails = details;
     showDetailsPopup = true;
   }
 
-    // Time tracking
-  let stageStartTimes: { [key: number]: string } = {};
-  let lastSavedTimes: { [key: number]: string } = {};
-  let lastSubmittedTimes: { [key: number]: string } = {};
-
-
   function closeDetailsPopup() {
     showDetailsPopup = false;
     selectedDcDetails = null;
   }
 
-
+  
 
 interface DcBox {
   // ... other properties
@@ -142,15 +187,9 @@ async function validateAndShowDetails(dcNumber: string, index: number) {
     showAddMore = !showAddMore;
   }
 
-
-  // Props and event dispatcher
-  export let data: PageData;
-  export let salesOrder: SalesOrder;
-  const dispatch = createEventDispatcher();
-
   // Interfaces
   interface LineItem {
-    id: string;
+    Itemid: string;
     SONumber: string;
     isAvailabilityFrozen: any;
     needToPurchaseLocally: boolean;
@@ -159,7 +198,7 @@ async function validateAndShowDetails(dcNumber: string, index: number) {
     quantity: number;
     unit: string;
     rate: number;
-    item_total: number;
+    amount: number;
     status: string;
     serialNo?: string;
     invoiceNo?: string;
@@ -170,12 +209,12 @@ async function validateAndShowDetails(dcNumber: string, index: number) {
   dcDetails: { dcNumber: any; customerName: any; companyName: any; dcDate: any; total: any; status: any; challanStatus: any; referenceNumber: any; branchName: any; };
   status: any;
   SONumber: string;
-  customName: string;
-  trackingNo: string;
-  dispatchedDate: string;
-  deliveryDate: string;
+  DCNumber: string;
+  PODNo: string;
+  DispatchDate: string;
+  EstdDeliveryDate: string;
   dcAmount: number;
-  attachment: String;
+  attachment: string;
   lineItemCount: number;
   isSaved: boolean;
   lineItemIndices: number[];
@@ -185,8 +224,7 @@ async function validateAndShowDetails(dcNumber: string, index: number) {
   isTypeSet: boolean;
 }
 
-  // Stage and form variables
-  let currentStage = 0;
+
   let stageData = [
   { title: 'Stage 0. Site Not Ready', completed: false, visible: true },
   { title: 'Stage 1. Logistics', completed: false, visible: true },
@@ -196,56 +234,12 @@ async function validateAndShowDetails(dcNumber: string, index: number) {
   { title: 'Stage 5. Share with Account', completed: false, visible: true }
 ];
 
-  export let Stage0Data: any;
-
-    Stage0Data = {
-    SONumber: salesOrder.salesorder_number,
-    clientName: salesOrder.customer_name,
-    SubTotal: salesOrder.sub_total,
-    Total: salesOrder.total,
-    SOCategory : salesOrder.custom_field_hash.cf_so_cat,
-    projectManagerName : salesOrder.custom_field_hash.cf_project_manager_name,
-    clientExpectedDate : ''
-  };
-  let Stage3Data={
-    SONumber: salesOrder.salesorder_number,
-    engName:'',
-    ScheduleDate:'',
-    MobNo:'',
-    VendorName:'',
-    Remark:'',
-    Report:'',
-    Ticketid:''
-  };
-  let Stage4Data = {
-    SONumber: salesOrder.salesorder_number,
-    ReturnPickupName : '',
-    ReturnPickupMobile : '',
-    ReturnPickupRemark : '',
-    DCNumber:'',
-    CourierTrackNo:'',
-    DCAmount:'',
-    DispatchDate:'',
-    DeliveryDate:'',
-    Remark:'',
-    Attachment:''
-  }
-
   let isEditing = true;
+  let allStatusesFilled = false;
   let partialDelivery = false;
   let canAccessNextStage = false;
   let allItemsSaved = false;
   let newlyAvailableItems: Array<{ id: string, name: string, status: 'available' | 'need_to_purchase' }> = [];  let notAvailableItems: LineItem[] = [];
-   // Map line items with status
-  let lineItemsWithStatus: LineItem[] = salesOrder.line_items.map(item => ({
-    ...item,
-    id: `${item.name}_${item.quantity}`,
-    status: '',
-    isAvailable: false,
-    isAvailabilityFrozen: false,
-    SONumber: salesOrder.salesorder_number,
-    needToPurchaseLocally: false
-  }));
   let minDate: string;
 
 function updateMinDate() {
@@ -261,24 +255,6 @@ onMount(() => {
 
   let dcOrderTotal = { subtotal: 0, igst: 0, total: 0 };
   let frozenLineItems: { [key: string]: boolean } = {};
-  let dcBoxes: DCBox[] = [{
-        dcDetails: { dcNumber: '', customerName: '', companyName: '', dcDate: '', total: '', status: '', challanStatus: '', referenceNumber: '', branchName: '' },
-        SONumber: salesOrder.salesorder_number,
-        customName: '',
-        status: '',
-        trackingNo: '',
-        dispatchedDate: '',
-        deliveryDate: '',
-        dcAmount: 0,
-        attachment: '',
-        lineItemCount: 0,
-        isSaved: false,
-        lineItemIndices: [],
-        fileName: '',
-        filePreviewUrl: null,
-        billType: 'DC', // Default to DC
-        isTypeSet: false, 
-    }];
   let dcCounter = 1;
 
   // Reactive declarations
@@ -296,26 +272,24 @@ onMount(() => {
   }
 
   function goToNextStage() {
-  if (currentStage < stageData.length - 1) {
+  if (moveStage < stageData.length - 1) {
     do {
-      currentStage++;
-    } while (currentStage < stageData.length && !stageData[currentStage].visible);
+      moveStage++;
+    } while (moveStage < stageData.length && !stageData[moveStage].visible);
   }
 }
 
 function goToPreviousStage() {
-  if (currentStage > 0) {
+  if (moveStage > 0) {
     do {
-      currentStage--;
-    } while (currentStage > 0 && !stageData[currentStage].visible);
+      moveStage--;
+    } while (moveStage > 0 && !stageData[moveStage].visible);
   }
 }
 
   function editStage() {
     isEditing = true;
   }
-  
-
 
   // Form submission and validation
   function handleSubmit(event: Event) {
@@ -352,42 +326,7 @@ function goToPreviousStage() {
         }
       } 
     }
-
-  if (pendingChanges.length > 0) {
-    showConfirmationPopup = true;
-  } else {
-    alert("No changes to submit.");
   }
-  }
-
-  function formatChangeAction(change: PendingChange): string {
-  switch (change.fieldType) {
-    case 'dropdown':
-      return `Selected "${change.newValue}" for ${formatFieldName(change.fieldName)}`;
-    case 'date':
-      return `Set ${formatFieldName(change.fieldName)} to ${formatDate(change.newValue)}`;
-    case 'text':
-      return `Updated ${formatFieldName(change.fieldName)} to "${truncateText(change.newValue)}"`;
-    default:
-      return `Set ${formatFieldName(change.fieldName)} to ${change.newValue}`;
-  }
-}
-
-function formatFieldName(fieldName: string): string {
-  return fieldName.replace(/([A-Z])/g, ' $1').trim();
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
-}
-
-function truncateText(text: string, maxLength: number = 50): string {
-  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-}
 
   async function confirmSubmit() {
     showConfirmationPopup = false;
@@ -396,32 +335,6 @@ function truncateText(text: string, maxLength: number = 50): string {
     if (currentStage < stageData.length - 1) {
       stageStartTimes[currentStage + 1] = getCurrentDateTime();
     }
-
-  try {
-    // Log all pending changes
-    for (const change of pendingChanges) {
-      let action = formatChangeAction(change);
-      
-      const response = await fetch('/api/log-activity', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          salesOrderId: Stage0Data.SONumber,
-          username: username,
-          role: userRole,
-          action: action
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to log activity');
-      }
-    }
-
-    // Clear pending changes after successful logging
-    pendingChanges = [];
     
     switch (currentStage) {
     case 0:
@@ -511,17 +424,26 @@ function truncateText(text: string, maxLength: number = 50): string {
     }
 
     stageData[currentStage].completed = true;
+    // Automatically move to the next stage
     goToNextStage();
-
-    // Invalidate and refresh the page data
-    await invalidateAll();
-
-    alert('Changes submitted successfully');
-  } catch (error) {
-    console.error('Error logging activities:', error);
-    alert('Failed to submit changes. Please try again.');
+    if (currentStage < stageData.length - 1) {
+    do {
+      currentStage++;
+    } while (currentStage < stageData.length && !stageData[currentStage].visible);
   }
-}
+    try {
+        await fetch('/update-current-stage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                SONumber: Stage0Data.SONumber, // Assuming SONumber is in Stage0Data
+                currentStage: currentStage // Update to the next stage
+            })
+        });
+    } catch (error) {
+        console.error('Error updating current stage:', error);
+    }
+  }
 
   // Helper functions
   function formatCurrency(amount: number) {
@@ -543,7 +465,7 @@ function truncateText(text: string, maxLength: number = 50): string {
         !frozenLineItems[index] &&
         index >= (dcIndex > 0 ? dcBoxes[dcIndex - 1].lineItemCount : 0)
       )
-      .reduce((sum, item) => sum + item.item_total, 0);
+      .reduce((sum, item) => sum + item.amount, 0);
   }
 
   function updateDCOrderTotal() {
@@ -552,8 +474,8 @@ function truncateText(text: string, maxLength: number = 50): string {
     } else {
       // Calculate total of unsaved line items
     dcOrderTotal.subtotal = lineItemsWithStatus
-      .filter((item) => !frozenLineItems[item.id] && (item.status === 'available' || item.status === 'need_to_purchase'))
-      .reduce((sum, item) => sum + item.item_total, 0);
+      .filter((item) => !frozenLineItems[item.Itemid] && (item.status === 'available' || item.status === 'need_to_purchase'))
+      .reduce((sum, item) => sum + item.amount, 0);
     }
     // Update the UI
     dcOrderTotal = dcOrderTotal; // Trigger reactivity
@@ -623,16 +545,16 @@ function truncateText(text: string, maxLength: number = 50): string {
   // Associate newly available or purchasable items with the current DC
   lineItemsWithStatus.forEach((item, index) => {
     if ((item.status === 'available' || item.status === 'need_to_purchase') && !frozenLineItems[item.id]) {
-      frozenLineItems[item.id] = true;
+      frozenLineItems[item.Itemid] = true;
       currentDC.lineItemIndices.push(index);
     }
-    if ((item.status === 'not_required') && !frozenLineItems[item.id]) {
-        frozenLineItems[item.id] = true;
+    if ((item.status === 'not_required') && !frozenLineItems[item.Itemid]) {
+        frozenLineItems[item. Itemid] = true;
       }
   });
   // Ensure all items in the current DC are marked as frozen
   currentDC.lineItemIndices.forEach(index => {
-    frozenLineItems[lineItemsWithStatus[index].id] = true;
+    frozenLineItems[lineItemsWithStatus[index].Itemid] = true;
   });
 
   notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available');
@@ -673,21 +595,21 @@ function truncateText(text: string, maxLength: number = 50): string {
   dcCounter++;
   dcBoxes = [...dcBoxes, {
     dcDetails: { dcNumber: '', customerName: '', companyName: '', dcDate: '', total: '', status: '', challanStatus: '', referenceNumber: '', branchName: '' },
-    SONumber: salesOrder.salesorder_number,
-	  customName: '',
-	  trackingNo: '',
-	  dispatchedDate: '',
-	  deliveryDate: '',
-	  dcAmount: 0,
-	  attachment: '',
-	  lineItemCount: 0,
-	  lineItemIndices: [],
-	  isSaved: false,
-	  fileName: '',
-	  filePreviewUrl: null,
-	  status: '' ,
-    billType: 'DC', // Default to DC
-    isTypeSet: false, 
+        SONumber: salesOrder.salesorder_number,
+        DCNumber: '',
+        status: '',
+        PODNo: '',
+        DispatchDate: '',
+        EstdDeliveryDate: '',
+        dcAmount: 0,
+        attachment: '',
+        lineItemCount: 0,
+        isSaved: false,
+        lineItemIndices: [],
+        fileName: '',
+        filePreviewUrl: null,
+        billType: 'DC', // Default to DC
+        isTypeSet: false,  
   }];
     // Recalculate the total for the new DC
     updateDCOrderTotal();
@@ -703,10 +625,10 @@ function setBillType(index: number) {
   // Function to check if current DC is filled  
   function isCurrentDCFilled() {
     const currentDC = dcBoxes[dcBoxes.length - 1];
-    return currentDC.customName.trim() && 
-        currentDC.trackingNo && 
-        currentDC.dispatchedDate && 
-        currentDC.deliveryDate && 
+    return currentDC.DCNumber.trim() && 
+        currentDC.PODNo && 
+        currentDC.DispatchDate && 
+        currentDC.EstdDeliveryDate && 
         (currentDC.attachment || currentDC.fileName || currentDC.filePreviewUrl);
   }
 
@@ -716,7 +638,7 @@ function updateDCAmount(dcIndex: number) {
   if (!dc.isSaved) {
   dc.dcAmount = dc.lineItemIndices.reduce((sum, index) => {
     const item = lineItemsWithStatus[index];
-    return sum + item.item_total;
+    return sum + item.amount;
   }, 0);
   dcBoxes = dcBoxes; // Trigger reactivity
   }
@@ -855,12 +777,6 @@ function downloadFileFromUrl(url: string | null, fileName: string) {
   }
 }
 
-  // Function to go to next page
-  function goToNextPage() {
-    if (currentStage < stageData.length - 1) {
-      currentStage++;
-    }
-  }
 
   // Stage 2 related functions
   let showSaveButton = false;
@@ -884,9 +800,9 @@ function handleAvailabilityChange(itemId: string, newStatus: 'available' | 'need
     item.attachment = undefined;
 
     // Add the item to newlyAvailableItems
-    if (!newlyAvailableItems.some(newItem => newItem.id === item.id)) {
+    if (!newlyAvailableItems.some(newItem => newItem.id === item.Itemid)) {
       newlyAvailableItems.push({
-        id: item.id,
+        id: item.Itemid,
         name: item.name,
         status: newStatus
       });
@@ -905,7 +821,7 @@ function handleAttachmentChange(event: Event, itemId: string) {
   const file = input.files?.[0];
   
   if (file) {
-    const item = notAvailableItems.find(item => item.id === itemId);
+    const item = notAvailableItems.find(item => item.Itemid === itemId);
     if (item) {
       item.attachment = file;
       notAvailableItems = notAvailableItems; // Trigger reactivity
@@ -1008,7 +924,7 @@ function openPreviewModalMaterial(item: LineItem) {
     serviceFileName?: string;
     // ... other properties ...
   }
-
+  let shipments: any[] = [{ isSaved: false, activeTab: 'installation', rejected: false, rejectionRemark: '' }];
 
   function validateMobileNumber(number: string): boolean {
     const regex = /^\d{10}$/;
@@ -1019,18 +935,30 @@ function openPreviewModalMaterial(item: LineItem) {
       input.value = input.value.replace(/\D/g, '').slice(0, 10);
   }
 
-  function saveShipment(index: number) {
+  async function saveShipment(index: number) {
   const shipment = shipments[index];
   if (isShipmentValid(shipment)) {
     shipment.isSaved = true;
     shipments = [...shipments];
     shipment.accountStatus = '';
     shipment.accountRemark = '';
+    
+
+    try {
+      await fetch(`/submit-stage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage: currentStage, 
+        data: {Stage3Data} 
+      })});
+    }catch (error) {
+      console.error('Error:', error);
+    }
     shipment.isEditing = false;
-    alert(`${shipment.activeTab === 'installation' ? 'Installation' : 'Service'} details saved successfully.`);
+    alert(`${Stage3Data.activeTab === 'installation' ? 'Installation' : 'Service'} details saved successfully.`);
     console.log('Saved shipment:', shipment); // Debug log
   } else {
-    alert(`Please fill up all the ${shipment.activeTab === 'installation' ? 'installation' : 'service'} details before saving.`);
+    alert(`Please fill up all the ${Stage3Data.activeTab === 'installation' ? 'installation' : 'service'} details before saving.`);
     console.log('Invalid shipment:', shipment); // Debug log
   }
   lastSavedTimes[currentStage] = getCurrentDateTime();
@@ -1075,6 +1003,26 @@ function openPreviewModalMaterial(item: LineItem) {
   });
  }
 
+ function convertBase64ToFile(base64String: string, fileName: string, mimeType: string): File {
+  // Extract the base64 data (remove the data URL prefix if present)
+  const base64Data = base64String.split(',')[1] || base64String;
+  
+  // Convert base64 to binary
+  const binaryString = atob(base64Data);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  
+  // Create a Blob from the binary data
+  const blob = new Blob([bytes], { type: mimeType });
+  
+  // Create a File from the Blob
+  return new File([blob], fileName, { type: mimeType });
+}
+
   // Return pickup related functions
 
   function previewFile(file: File | string | null) {
@@ -1115,7 +1063,35 @@ function closeFilePreviewModal() {
 }
 
 
+let returnPickup = {
+    name: '',
+    mobile: '',
+    remark: '',
+    file: null as File | any,
+    fileName: '',
+    filePreviewUrl: null as string | null,
+    isSaved: false,
+    isDataSaved: false,
+    rejected: false,
+    rejectionRemark: '',
+    accountStatus: '',
+    accountRemark: '',
+    isEditing: false,
+    dcNumber: '',
+    trackingNo: '',
+    dcAmount: '',
+    dispatchedDate: '',
+    deliveryDate: '',
+    dcaccountRemark: ''
+  };
 
+  let returnPickupRequested = false;
+  let showReturnPickupConfirmation = false;
+  let showConfirmationPopup = false;
+  let returnPickupDetailsSaved = false;
+  let returnPickupName = '';
+  let returnPickupMobile = '';
+  let returnPickupRemark = '';
 
   function toggleReturnPickup() {
     if (returnPickupRequested && !returnPickupDetailsSaved) {
@@ -1244,7 +1220,12 @@ function updateDeliveryDateMin() {
     }
 }
 
-
+  // Share with account related variables
+  let accountStatus = '';
+  let accountRemark = '';
+  let showRejectionAlert = false;
+  let canEditOngoing = false;
+  let canEditReturnPickup = false;
 
   // Reactive statements
   $: {
@@ -1276,16 +1257,132 @@ function updateDeliveryDateMin() {
 }
 $: allItemsNotAvailable = lineItemsWithStatus.every(item => item.status === 'not_available');
 
+  // Time tracking
+  let stageStartTimes: { [key: number]: string } = {};
+  let lastSavedTimes: { [key: number]: string } = {};
+  let lastSubmittedTimes: { [key: number]: string } = {};
 
-
-function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'dropdown' | 'date' | 'text' | 'other') {
-  // Only add to pendingChanges if the value has actually changed
-  if (Stage0Data[fieldName] !== newValue) {
-    pendingChanges.push({ fieldName, newValue, fieldType });
+  async function handleFieldUpdate(fieldName: string, oldValue: string, newValue: string) {
+    const action = `Updated ${fieldName} from "${oldValue}" to "${newValue}"`;
     
-    // Update local state for immediate UI feedback
-    Stage0Data[fieldName] = newValue;
+    try {
+      const response = await fetch('/api/log-activity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          salesOrderId: Stage0Data.SONumber,
+          username: username,
+          role: userRole,
+          action: action
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to log activity');
+      }
+
+      // Update the local state
+      if (fieldName === "SO Category") {
+        Stage0Data.SOCategory = newValue;
+      } else if (fieldName === "Project Manager") {
+        Stage0Data.projectManagerName = newValue;
+      }
+
+      // Invalidate and refresh the page data
+      await invalidateAll();
+    } catch (error) {
+      console.error('Error logging activity:', error);
+      // Handle the error (e.g., show a notification to the user)
+    }
   }
+
+  async function fetchPreviousStagesData() {
+  try {
+    const response = await fetch(`/fetch-previous-stages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentStage, salesOrder}),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      const { stage0Fetched, stage1Fetched, stage3Fetched } = fillPreviousStagesData(result.previousStagesData);
+      console.log("fucking fetch---", Stage3Data);
+      
+    }
+  } catch (error) {
+    console.error('Error fetching previous stages data:', error);
+  }
+}
+function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetched: boolean, stage3Fetched: boolean } {
+  console.log("fetched data-", data);
+  let stage0Fetched = false;
+  let stage1Fetched = false;
+  let stage3Fetched = false;
+
+  if (data.stage0) {
+    Stage0Data = { ...data.stage0 };
+    Stage0Data.clientExpectedDate = new Date(Stage0Data.clientExpectedDate).toISOString().split('T')[0];
+    stage0Fetched = true;
+  }
+  if (data.stage1) {
+    if (data.stage1.lineItems && data.stage1.lineItems.length > 0) {
+      lineItemsWithStatus = data.stage1.lineItems.map((item: LineItem) => ({
+        ...item,
+        isAvailabilityFrozen: item.isAvailabilityFrozen || false,
+        needToPurchaseLocally: item.needToPurchaseLocally || false,
+        isAvailable: item.isAvailable || false,
+      }));
+      console.log("Items func", lineItemsWithStatus);
+    }
+
+    if (data.stage1.dcBoxes && data.stage1.dcBoxes.length > 0) {
+      dcBoxes = data.stage1.dcBoxes.map((box: DCBox) => ({
+        ...box,
+        filePreviewUrl: box.filePreviewUrl || null,
+        billType: box.billType || 'DC',
+        isTypeSet: box.isTypeSet || false,
+        DispatchDate : new Date(box.DispatchDate).toISOString().split('T')[0],
+        EstdDeliveryDate : new Date(box.EstdDeliveryDate).toISOString().split('T')[0],
+        attachment: box.attachment ? convertBase64ToFile(box.attachment, box.fileName || 'attachment.jpg', 'image/jpeg') : null
+      }));
+    }
+    stage1Fetched = true;
+  }
+
+  if (data.stage3) {
+    Stage3Data = {}; 
+    if (data.stage3.installation != null) {
+      Stage3Data.SONumber = data.stage3.installation.SONumber;
+      Stage3Data.engName = data.stage3.installation.engName;
+      Stage3Data.MobNo = data.stage3.installation.MobNo;
+      Stage3Data.VendorName = data.stage3.installation.VendorName;
+      Stage3Data.Remark = data.stage3.installation.InstallationRem;
+      Stage3Data.Report = data.stage3.installation.InstReport;
+      Stage3Data.Ticketid = '';
+      Stage3Data.ScheduleDate=new Date(data.stage3.installation.ScheduleDate).toISOString().split('T')[0];
+      Stage3Data.activeTab=data.stage3.installation.activeTab;
+    }
+    if (data.stage3.service != null) {
+      Stage3Data.SONumber = data.stage3.service.SONumber;
+      Stage3Data.engName = data.stage3.service.engName;
+      Stage3Data.MobNo = data.stage3.service.MobNo;
+      Stage3Data.VendorName = data.stage3.service.VendorName;
+      Stage3Data.Remark = data.stage3.service.ServiceRem;
+      Stage3Data.Report = data.stage3.service.ServiceReport;
+      Stage3Data.Ticketid = data.stage3.service.Serticketid;
+      Stage3Data.ScheduleDate=new Date(data.stage3.service.ScheduleDate).toISOString().split('T')[0];
+      Stage3Data.activeTab=data.stage3.service.activeTab;
+    }
+    stage3Fetched = true;
+  }
+
+
+  console.log("Global Stage3", Stage3Data);
+  return { stage0Fetched, stage1Fetched, stage3Fetched };
 }
 
 
@@ -1309,6 +1406,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
     <h2 id="modal-title" class="text-3xl font-bold mb-6 text-gray-800">Stages</h2>
     
     <!-- Stage navigation -->
+
     <div class="mb-8 flex flex-wrap justify-center gap-3">
       {#each stageData as stage, index}
         {#if stage.visible !== false}
@@ -1335,7 +1433,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
     <!-- Stage header -->
       <h3 class="text-2xl font-bold mb-6 text-gray-800">{stageData[currentStage].title}</h3>
 
-      {#if currentStage === 0}
+      {#if moveStage === 0}
         <!-- API data fields -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
@@ -1406,8 +1504,8 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
       <input 
         type="date" 
         id="client_expected_date" 
-        bind:value={Stage0Data.clientExpectedDate}
-        on:input={(e) => handleFieldUpdate("Client Expected Date of Handover", Stage0Data.clientExpectedDate, "date" , e.target.value)} 
+        bind:value={Stage0Data.clientExpectedDate} 
+        on:change={(e) => handleFieldUpdate("Client Expected Date of Handover", Stage0Data.clientExpectedDate, e.target.value)}
         min={minDate}
         class="w-full px-3 py-2 border rounded-md" 
         disabled={!isEditing} 
@@ -1418,7 +1516,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
   </div>
    
         
-        {:else if currentStage === 1}
+        {:else if moveStage === 1}
           <!-- Logistics stage content -->
           {#if showLogisticsAlert}
           <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 relative form-card" role="alert">
@@ -1467,19 +1565,15 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                  {#each lineItemsWithStatus as item, index (item.id)}
+                  {#each lineItemsWithStatus as item, index (item.Itemid)}
                     <tr>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.name}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity} {item.unit}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.rate)}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.item_total)}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.amount)}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <select 
-                        bind:value={lineItemsWithStatus[index].status} 
-                        class=" w-32 px-2 py-1 border rounded-md" 
-                        disabled={frozenLineItems[item.id]} 
-                        >
+                        <select bind:value={lineItemsWithStatus[index].status} class=" w-32 px-2 py-1 border rounded-md" disabled={frozenLineItems[item.Itemid]} >
                           <option value="">Select status</option>
                           <option value="available">Available</option>
                           <option value="not_available">Not Available</option>
@@ -1508,10 +1602,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
   {#if lineItemsWithStatus.some(item => item.status === 'not_available')}
   <div class="mt-4">
     <label class="inline-flex items-center">
-      <input type="checkbox" 
-       bind:checked={partialDelivery} 
-       class="form-checkbox"
-       >
+      <input type="checkbox" bind:checked={partialDelivery} class="form-checkbox">
       <span class="ml-2">Partial Delivery</span>
     </label>
   </div>
@@ -1558,7 +1649,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
                       <input 
                         type="text" 
                         id="dc-number-{index}"
-                        bind:value={dc.customName}
+                        bind:value={dc.DCNumber} 
                         placeholder={dc.billType === 'E-way' ? "Enter E-way number" : "Enter DC number"}
                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
                         disabled={dc.isSaved}
@@ -1587,7 +1678,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
                   <button
                   type="button"
                   class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                  on:click={() => validateAndShowDetails(dc.customName, index)}
+                  on:click={() => validateAndShowDetails(dc.DCNumber, index)}
                 >
                   Validate
                 </button>
@@ -1666,17 +1757,17 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
                   <div class="flex space-x-4">
                     <div class="flex-1">
                       <label for="tracking-no-{index}" class="block text-sm font-medium text-gray-700">POD Number:</label>
-                      <input type="text" id="tracking-no-{index}" bind:value={dc.trackingNo} class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required disabled={dc.isSaved}>
+                      <input type="text" id="tracking-no-{index}" bind:value={dc.PODNo} class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" required disabled={dc.isSaved}>
                     </div>
 
                     <div class="flex-1">
-                      <label for="dispatched-date-{index}" class="block text-sm font-medium text-gray-700">Dispatched Date:</label>
-                      <input type="date" id="dispatched-date-{index}" bind:value={dc.dispatchedDate} class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" max={new Date().toISOString().split('T')[0]} required disabled={dc.isSaved}>
+                      <label for="dispatched-date-{index}" class="block text-sm font-medium text-gray-700">Dispatch Date:</label>
+                      <input type="date" id="dispatched-date-{index}" bind:value={dc.DispatchDate} class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" max={new Date().toISOString().split('T')[0]} required disabled={dc.isSaved}>
                     </div>
 
                     <div class="flex-1">
                       <label for="delivery-date-{index}" class="block text-sm font-medium text-gray-700">Estimated Delivery Date:</label>
-                      <input type="date" id="delivery-date-{index}" bind:value={dc.deliveryDate} class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" min={dc.dispatchedDate} required disabled={dc.isSaved}>
+                      <input type="date" id="delivery-date-{index}" bind:value={dc.EstdDeliveryDate} class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" min={dc.dispatchedDate} required disabled={dc.isSaved}>
                     </div>
 
                     <div class="flex-1">
@@ -1755,7 +1846,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
                           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.name}</td>
                           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity} {item.unit}</td>
                           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.rate)}</td>
-                          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.item_total)}</td>
+                          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.amount)}</td>
                           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.status === 'need_to_purchase' ? 'Need to purchase locally' : 'Available'}
                           </td>
@@ -1795,7 +1886,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
 </div>
 {/if}
 
-{:else if currentStage === 2}
+{:else if moveStage === 2}
 <!-- Material to Procure stage content -->
 <div class="mb-4">
   <h4 class="text-xl font-bold mb-4 text-center">Not Available Items</h4>
@@ -1930,7 +2021,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
   </div>
 </div>
  
-  {:else if currentStage === 3}
+  {:else if moveStage === 3}
    <!-- On Going stage content -->
    <div class="relative pb-16 ">
     
@@ -1946,16 +2037,16 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
           
           <!-- Dynamic header based on active tab -->
           <h5 class="text-lg font-semibold mb-4">
-            {shipment.activeTab === 'installation' ? 'Installation Report' : 'Service Report'} 
+            {Stage3Data.activeTab === 'installation' ? 'Installation Report' : 'Service Report'} 
           </h5>
 
           <!-- Toggle buttons for Installation and Service -->
           <div class="flex justify-center mb-4">
             <button
-              class="px-4 py-2 {shipment.activeTab === 'installation' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-l"
+              class="px-4 py-2 {Stage3Data.activeTab === 'installation' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-l"
               on:click={() => {
                 if (!shipment.isSaved) {
-                  shipment.activeTab = 'installation';
+                  Stage3Data.activeTab = 'installation';
                   shipments = [...shipments];
                 }
               }}
@@ -1964,10 +2055,10 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
               Installation
             </button>
             <button
-              class="px-4 py-2 {shipment.activeTab === 'service' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-r"
+              class="px-4 py-2 {Stage3Data.activeTab === 'service' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-r"
               on:click={() => {
                 if (!shipment.isSaved) {
-                  shipment.activeTab = 'service';
+                  Stage3Data.activeTab = 'service';
                   shipments = [...shipments];
                 }
               }}
@@ -1977,7 +2068,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
             </button>
           </div>
 
-        {#if shipment.activeTab === 'installation'}
+        {#if Stage3Data.activeTab === 'installation'}
           <!-- Installation fields -->
           <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
@@ -2238,7 +2329,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
    </div>
 
    
-   {:else if currentStage === 4 && stageData[4].visible}
+   {:else if moveStage === 4 && stageData[4].visible}
    <!-- Return Pickup Stage -->
    <div class="mb-8 p-4 border rounded-lg relative">
     {#if returnPickup.rejected}
@@ -2420,7 +2511,7 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
 </div>
 
 
-  {:else if currentStage === (stageData[4].visible ? 5 : 4)}
+  {:else if moveStage === (stageData[4].visible ? 5 : 4)}
   <!-- Share with Account stage content -->
   <h4 class="text-lg font-bold mb-2">Installation or Service Report</h4>
   <!-- Ongoing Shipments -->
@@ -2722,8 +2813,11 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
             <button type="button" on:click={editStage} class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
                 Edit
               </button>
-            {/if}            
+            {/if}   
+            
           </div>
+
+
 
     <!-- Time information -->
     <div class="mt-8 text-sm text-gray-500">
@@ -2816,234 +2910,3 @@ function handleFieldUpdate(fieldName: string, newValue: string, fieldType: 'drop
   }
 </style>
 
-<!-- <style>
-  :root {
-  --primary-color: #4a90e2;
-  --secondary-color: #50e3c2;
-  --background-color: #f5f7fa;
-  --card-background: #ffffff;
-  --text-color: #333333;
-  --border-color: #e0e0e0;
-  --success-color: #27ae60;
-  --warning-color: #f39c12;
-  --danger-color: #e74c3c;
-}
-
-.modal {
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(5px);
-}
-
-.modal-content {
-  background-color: var(--card-background);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  max-width: 900px;
-  width: 95%;
-  margin: 2rem auto;
-  padding: 2rem;
-}
-
-/* Typography */
-h2, h3, h4, h5 {
-  color: var(--primary-color);
-  margin-bottom: 1.5rem;
-}
-
-h2 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 2.5rem;
-}
-
-/* Form Card */
-.form-card {
-  background-color: var(--card-background);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
-  margin-bottom: 2rem;
-  transition: all 0.3s ease;
-}
-
-.form-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* Form elements */
-input[type="text"],
-input[type="tel"],
-input[type="date"],
-input[type="file"],
-select,
-textarea {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-}
-
-input[type="text"]:focus,
-input[type="tel"]:focus,
-input[type="date"]:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-}
-
-/* Buttons */
-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.btn-primary {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.btn-success {
-  background-color: var(--success-color);
-  color: white;
-}
-
-.btn-warning {
-  background-color: var(--warning-color);
-  color: white;
-}
-
-.btn-danger {
-  background-color: var(--danger-color);
-  color: white;
-}
-
-/* Tables */
-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background-color: var(--card-background);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-th, td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border-color);
-}
-
-th {
-  background-color: var(--primary-color);
-  color: white;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
-}
-
-/* Modern Stages Progress Bar */
-.stages-progress {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 3rem;
-  position: relative;
-}
-
-.stages-progress::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background-color: var(--border-color);
-  transform: translateY(-50%);
-  z-index: 1;
-}
-
-.stage-item {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stage-bullet {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background-color: var(--card-background);
-  border: 4px solid var(--border-color);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: bold;
-  color: var(--text-color);
-  transition: all 0.3s ease;
-}
-
-.stage-title {
-  margin-top: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-color);
-  text-align: center;
-}
-
-.stage-item.active .stage-bullet {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
-  color: white;
-}
-
-.stage-item.completed .stage-bullet {
-  background-color: var(--success-color);
-  border-color: var(--success-color);
-  color: white;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .modal-content {
-    padding: 1.5rem;
-  }
-
-  .stages-progress {
-    flex-wrap: wrap;
-  }
-
-  .stage-item {
-    flex-basis: 50%;
-    margin-bottom: 1rem;
-  }
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.modal {
-  animation: fadeIn 0.3s ease;
-}
-</style> -->

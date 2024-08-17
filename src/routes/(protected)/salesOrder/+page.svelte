@@ -29,7 +29,7 @@
 
     let opsStatusFilter = 'all';
     const opsStatusOptions = [
-        { value: 'all', label: 'All OPS Statuses' },
+        { value: 'all', label: 'All OPS Status' },
         { value: 'null', label: 'N/A' },
         { value: '0', label: 'Stage 0' },
         { value: '1', label: 'Stage 1' },
@@ -60,7 +60,7 @@
     });
 
     const statusOptions = [
-        { value: 'all', label: 'All Statuses' },
+        { value: 'all', label: 'All Status' },
         { value: 'draft', label: 'Draft' },
         { value: 'open', label: 'Open' },
         { value: 'closed', label: 'Closed' },
@@ -127,63 +127,79 @@
         }
         return pages;
     }
+
+    function prevPage() {
+        if (data.currentPage > 1) {
+            changePage(data.currentPage - 1);
+        }
+    }
+
+    function nextPage() {
+        if (data.hasMore) {
+            changePage(data.currentPage + 1);
+        }
+    }
 </script>
 
 <div class="container mx-auto px-4 py-8">
-    <div class="mb-6 flex items-center space-x-2">
-        <input
-            type="text"
-            bind:value={searchTerm}
-            on:keypress={handleKeyPress}
-            placeholder="Search by order number"
-            class="flex-grow px-4 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <div class="relative">
-            <select
-                bind:value={statusFilter}
-                on:change={handleSearch}
-                class="appearance-none px-4 py-2 pr-8 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    <div class="mb-6 flex flex-wrap items-center gap-4">
+        <div class="flex-grow flex items-center">
+            <input
+                type="text"
+                bind:value={searchTerm}
+                on:keypress={handleKeyPress}
+                placeholder="Search by order number"
+                class="flex-grow px-4 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+                on:click={handleSearch}
+                class="p-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                title="Search"
             >
-                {#each statusOptions as option}
-                <option value={option.value}>{option.label}</option>
-                {/each}
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <Filter size={16} />
-            </div>
+                <Search size={20} />
+            </button>
         </div>
-        <div class="relative">
-            <select
-                bind:value={opsStatusFilter}
-                on:change={handleSearch}
-                class="appearance-none px-4 py-2 pr-8 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <div class="flex items-center gap-2">
+            <div class="relative">
+                <select
+                    bind:value={statusFilter}
+                    on:change={handleSearch}
+                    class="appearance-none px-4 py-2 pr-8 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                    {#each statusOptions as option}
+                    <option value={option.value}>{option.label}</option>
+                    {/each}
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <Filter size={16} />
+                </div>
+            </div>
+            <div class="relative">
+                <select
+                    bind:value={opsStatusFilter}
+                    on:change={handleSearch}
+                    class="appearance-none px-4 py-2 pr-8 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                    {#each opsStatusOptions as option}
+                    <option value={option.value}>{option.label}</option>
+                    {/each}
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <Filter size={16} />
+                </div>
+            </div>
+            <button
+                on:click={toggleColumnSelector}
+                class="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                title="Toggle Columns"
             >
-                {#each opsStatusOptions as option}
-                <option value={option.value}>{option.label}</option>
-                {/each}
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <Filter size={16} />
-            </div>
+                <Columns size={20} />
+            </button>
         </div>
-        <button
-            on:click={toggleColumnSelector}
-            class="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            title="Toggle Columns"
-        >
-            <Columns size={20} />
-        </button>
-        <button
-            on:click={handleSearch}
-            class="p-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            title="Search"
-        >
-            <Search size={20} />
-        </button>
     </div>
 
     {#if showColumnSelector}
-    <div use:clickOutside on:clickoutside={toggleColumnSelector} class="absolute z-10 mt-2 right-0">
+    <div use:clickOutside on:clickoutside={toggleColumnSelector} class="absolute z-10 mt-2 right-4">
         <ColumnSelector {columns} on:change={handleColumnChange} />
     </div>
     {/if}
@@ -201,82 +217,25 @@
             on:rowClick={handleRowClick}
         />
 
-    <div class="flex justify-center items-center space-x-2 my-6">
+    <div class="flex justify-between items-center my-6">
         <button
-            on:click={() => changePage(1)}
+            on:click={prevPage}
             disabled={data.currentPage === 1}
-            class="p-2 bg-blue-500 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors duration-200"
-            title="First Page"
+            class="px-4 py-2 bg-blue-500 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors duration-200"
         >
-            <ChevronsLeft size={16} />
+            Previous
         </button>
-
+        
+        <span class="text-gray-600">
+            Page {data.currentPage}
+        </span>
+        
         <button
-            on:click={() => changePage(data.currentPage - 1)}
-            disabled={data.currentPage === 1}
-            class="p-2 bg-blue-500 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors duration-200"
-            title="Previous Page"
-        >
-            <ChevronLeft size={16} />
-        </button>
-
-        {#each getPageNumbers(data.currentPage, totalPages) as pageNum}
-            {#if typeof pageNum === 'number'}
-                <button
-                    on:click={() => changePage(pageNum)}
-                    class="px-3 py-1 rounded-md transition-colors duration-200 {pageNum === data.currentPage ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
-                >
-                    {pageNum}
-                </button>
-            {:else}
-                <span class="px-3 py-1">...</span>
-            {/if}
-        {/each}
-
-        <button
-            on:click={() => changePage(data.currentPage + 1)}
+            on:click={nextPage}
             disabled={!data.hasMore}
-            class="p-2 bg-blue-500 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors duration-200"
-            title="Next Page"
+            class="px-4 py-2 bg-blue-500 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors duration-200"
         >
-            <ChevronRight size={16} />
-        </button>
-
-        <button
-            on:click={() => changePage(totalPages)}
-            disabled={data.currentPage === totalPages}
-            class="p-2 bg-blue-500 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors duration-200"
-            title="Last Page"
-        >
-            <ChevronsRight size={16} />
-        </button>
-    </div>
-
-    <div class="mt-4 flex justify-center items-center space-x-2">
-        <label for="pageInput" class="text-sm font-medium">Go to page:</label>
-        <input
-            id="pageInput"
-            type="number"
-            min="1"
-            max={totalPages}
-            class="w-16 px-2 py-1 border rounded-md"
-            on:keypress={(e) => {
-                if (e.key === 'Enter') {
-                    changePage(parseInt(e.currentTarget.value));
-                }
-            }}
-        />
-        <button
-            on:click={() => {
-                const input = document.getElementById('pageInput');
-                if (input instanceof HTMLInputElement) {
-                    changePage(parseInt(input.value));
-                }
-            }}
-            class="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
-            title="Go to Page"
-        >
-            <ChevronRight size={16} />
+            Next
         </button>
     </div>
     {:else if !errorMessage}

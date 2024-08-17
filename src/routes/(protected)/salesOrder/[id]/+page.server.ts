@@ -50,10 +50,16 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
         where: { SONumber: salesOrder.salesorder_number },
         select: { currentStage: true }
         });
+    
+        const stage0Data = await db.stage0.findUnique({
+        where: { SONumber: salesOrder.salesorder_number },
+        select: { currentStage: true, isDropped: true }
+    });
 
     return {
         salesOrder,
         activityLogs,
-        currentStage
+        currentStage,
+        isDropped: stage0Data?.isDropped || false
     };
 };

@@ -31,4 +31,6 @@
   }
 </script>
 
-<canvas bind:this={canvas}></canvas>
+<div class="w-full h-64">
+  <canvas bind:this={canvas}></canvas>
+</div>
