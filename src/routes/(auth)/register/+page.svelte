@@ -289,16 +289,17 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
 </style>
 
 {#if showModal}
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-    <div class="bg-white p-8 rounded-lg shadow-xl">
+  <div class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 transition-opacity duration-300">
+    <div class="bg-white p-8 rounded-lg shadow-xl z-60 max-w-md w-full mx-4">
       <h2 class="text-2xl font-bold mb-4">Registration Successful</h2>
       <p>{modalMessage}</p>
       <button 
         on:click={closeModal}
-        class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
       >
-        close
+        Close
       </button>
     </div>
   </div>
 {/if}
+
