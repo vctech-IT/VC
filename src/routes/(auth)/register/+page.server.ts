@@ -127,7 +127,7 @@ const register: Action = async ({ request }) => {
 <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         <tr>
-            <td align="center" bgcolor="#007bff" style="padding: 40px 0;">
+            <td align="center" bgcolor="#ffffff" style="padding: 40px 0;">
                 <img src="https://i.ibb.co/x2j5Ck6/vc2-Photoroom.png" alt="VC Technologies Logo" width="200" style="display: block;">
             </td>
         </tr>
