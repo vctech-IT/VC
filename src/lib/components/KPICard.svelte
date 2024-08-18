@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   export let title: string;
+  export let title2: string;
   export let value: string | number;
   export let icon: string;
   export let color: string = 'bg-blue-600';
@@ -21,6 +22,7 @@
       </div>
       <div>
         <p class="text-sm font-medium text-gray-500 truncate">{title}</p>
+        <p class="text-sm font-medium text-gray-500 truncate">{title2}</p>
         <p class="mt-1 text-3xl font-semibold text-gray-900">{value}</p>
       </div>
     </div>

@@ -17,6 +17,13 @@ export async function POST({ request }) {
             where: { SONumber: SONumber },
             data: { currentStage: currentStage }
         });
+        
+      await prisma.stageHistory.create({
+        data: {
+          SONumber,
+          stage: currentStage
+        }
+      });
 
         return json({ success: true, data: updatedStage0 });
     } catch (error) {

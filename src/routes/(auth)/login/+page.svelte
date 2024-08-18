@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Swiper from 'swiper';
   import { Autoplay, Pagination } from 'swiper/modules';
+  import { page } from '$app/stores';
   import 'swiper/css';
   import 'swiper/css/pagination';
   import type { ActionData } from './$types';
@@ -14,6 +15,9 @@
 
   let showPassword = false;
   let loading = false;
+
+  $: verified = $page.url.searchParams.get('verified') === 'true';
+  $: error = $page.url.searchParams.get('error');
 
   const slides = [
     { src: "1.svg", title: "Innovative Security", description: "Cutting-edge protection for your digital world" },
@@ -73,6 +77,20 @@
         <h1 class="text-3xl font-bold text-gray-900">Welcome Back</h1>
         <p class="text-gray-600 mt-2">Please sign in to your account</p>
       </div>
+
+{#if verified}
+  <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+    <strong class="font-bold">Success!</strong>
+    <span class="block sm:inline"> Your email has been verified. You can now log in.</span>
+  </div>
+{/if}
+
+{#if error === 'invalid_token'}
+  <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+    <strong class="font-bold">Error!</strong>
+    <span class="block sm:inline"> Invalid or expired verification token.</span>
+  </div>
+{/if}
 
       <form 
         action="?/login" 

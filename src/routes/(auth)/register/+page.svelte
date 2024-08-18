@@ -7,16 +7,20 @@
   import type { ActionData } from './$types';
   import "$lib/styles/app.css"
   import { enhance } from '$app/forms';
+	import { redirect } from '@sveltejs/kit';
+	import { goto } from '$app/navigation';
 
   export let form: ActionData;
 
+  let showModal = false;
+  let modalMessage = '';
   let emailValid = true;
   let phoneValid = true;
   let showPassword = false;
   let showConfirmPassword = false;
   let passwordsMatch = true;
   let password = '';
-let confirmPassword = '';
+  let confirmPassword = '';
 
 $: passwordsMatch = password === confirmPassword;
 $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
@@ -62,6 +66,18 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
       passwordsMatch = true; // Reset to true if either field is empty
     }
   }
+
+  onMount(() => {
+    if (form?.success) {
+      showModal = true;
+      modalMessage = form.message;
+    }
+  });
+
+  async function closeModal() {
+    showModal = false;
+  }
+
 </script>
 
 <div class="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -73,7 +89,7 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
         <div class="swiper-wrapper">
           {#each slides as { src, title, description }}
             <div class="swiper-slide flex items-center justify-center h-full">
-              <div class="text-white text-center z-10 px-8 flex flex-col items-center justify-center h-full">
+              <div class="text-white text-center z- px-8 flex flex-col items-center justify-center h-full">
                 <img {src} alt="" class="w-3/4 h-auto mb-8 object-contain" />
                 <h2 class="text-3xl font-bold mb-2">{title}</h2>
                 <p class="text-xl">{description}</p>
@@ -244,6 +260,8 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
         </button>
       </form>
 
+
+
       <p class="mt-8 text-center text-sm text-gray-600">
         Already have an account? 
         <a href="/login" class="font-medium text-blue-600 hover:text-blue-500">Sign in</a>
@@ -251,6 +269,8 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
     </div>
   </div>
 </div>
+
+
 
 <style>
   :global(body) {
@@ -267,3 +287,18 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
     justify-content: center;
   }
 </style>
+
+{#if showModal}
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-xl">
+      <h2 class="text-2xl font-bold mb-4">Registration Successful</h2>
+      <p>{modalMessage}</p>
+      <button 
+        on:click={closeModal}
+        class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        close
+      </button>
+    </div>
+  </div>
+{/if}

@@ -37,7 +37,6 @@ import Header from '$lib/components/Header.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import { page } from '$app/stores';
 </script>
-
 <div class="flex h-screen bg-gray-50">
       {#if $page.data.user}
         <Sidebar />

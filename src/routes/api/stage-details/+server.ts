@@ -28,12 +28,26 @@ export const POST: RequestHandler = async ({ request }) => {
         SOCategory: true,
         PMName: true,
         clientExpectedDate: true,
-        createdAt: true
+        createdAt: true,
+        stageHistory: {
+          orderBy: {
+            timestamp: 'desc'
+          },
+          take: 1
+        }
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return json({ orders });
+  const processedOrders = orders.map(order => ({
+  ...order,
+  ageInHours: order.stageHistory[0] 
+    ? Math.round((new Date().getTime() - new Date(order.stageHistory[0].timestamp).getTime()) / (60 * 60 * 1000))
+    : 0,
+  lastUpdated: order.stageHistory[0] ? order.stageHistory[0].timestamp : null
+}));
+
+    return json({ orders: processedOrders });
   } catch (error) {
     console.error('Error fetching stage details:', error);
     return json({ error: 'Internal Server Error' }, { status: 500 });

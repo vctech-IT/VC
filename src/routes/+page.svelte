@@ -12,6 +12,8 @@ import LineChart from '$lib/components/LineChart.svelte';
 import { faFileAlt } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
 import { goto } from '$app/navigation';
+import { fade } from 'svelte/transition';
+import { quintOut } from 'svelte/easing';
 
 let totalOrders = 0;
 let activeTab = 0;
@@ -30,6 +32,18 @@ let conversionRate = 0;
 let dateRange = { start: null, end: null };
 let orderChart: Chart;
 let showModal = false;
+
+let agingData: {
+  summary: { [key: number]: { onTime: number; overdue: number } };
+  details: Array<{
+    SONumber: string;
+    SOId: string;
+    stage: number;
+    ageInHours: number;
+    isOverdue: boolean;
+    lastUpdated: string;
+  }>;
+} = { summary: {}, details: [] };
 
 onMount(async () => {
   await fetchDashboardData();
@@ -67,6 +81,10 @@ let modalContent: ModalContent = {
   soNumbers: [],
 };
 
+function sortStages(a: any, b: any) {
+  return a.stage - b.stage;
+}
+
 async function fetchDashboardData() {
   const response = await fetch('/api/dashboard-data', {
     method: 'POST',
@@ -88,7 +106,12 @@ async function fetchDashboardData() {
   ordersByMonth = data.ordersByMonth;
   averageOrderValue = data.averageOrderValue;
   conversionRate = data.conversionRate;
+  agingData = data.agingData;
   updateChart();
+}
+
+function getAgingColor(isOverdue: boolean): string {
+  return isOverdue ? 'bg-red-500 text-white' : 'bg-green-500 text-white';
 }
 
 function processInstallationData(details: any[], totalInstallations: number): ModalContent {
@@ -267,6 +290,7 @@ function getStageTitle(stage: number): string {
     case 3: return "Ongoing";
     case 4: return "Return Pickup";
     case 5: return "Share With Account";
+    case 6: return "Dropped";
     default: return "Unknown Stage";
   }
 }
@@ -298,163 +322,227 @@ function closeModal() {
     }
 }
 
+function formatDate(date: string): string {
+  return new Date(date).toLocaleString();
+}
+
   let isLoading = false;
 </script>
 
-<div class="container mx-auto px-4 py-8 bg-gray-100">
-  <h1 class="text-4xl font-bold mb-6">Dashboard</h1>
-  
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <KPICard title="Total Orders" value={totalOrders} icon="shopping-cart" color="bg-blue-500" />
-    <KPICard title="Total Revenue" value={`₹${totalRevenue.toLocaleString()}`} icon="currency-rupee" color="bg-green-500" />
-    <KPICard title="Total Installations" value={activeInstallations} icon="tools" color="bg-yellow-500" on:click={handleCardClick} />
-    <KPICard title="Total Services" value={activeServices} icon="cogs" color="bg-purple-500" on:click={handleCardClick} />
-  </div>
-
-  <div class="bg-white rounded-lg shadow p-4 mb-8">
-    <h2 class="text-2xl font-semibold mb-4">Orders by Stage</h2>
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-      {#each ordersByStage as { stage, count }}
-        <KPICard 
-          title={`Stage ${stage}`} 
-          value={count} 
-          icon="layer-group" 
-          color={getStageColor(stage)} 
-          on:click={handleCardClick}
-        />
-      {/each}
+<div class="min-h-screen bg-gray-100">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-4xl font-bold mb-6 text-gray-800">Dashboard</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <KPICard title="Total Orders" title2="" value={totalOrders} icon="shopping-cart" color="bg-blue-500" />
+      <KPICard title="Total Revenue" title2="" value={`₹${totalRevenue.toLocaleString()}`} icon="currency-rupee" color="bg-green-500" />
+      <KPICard title="Total Installations" title2="" value={activeInstallations} icon="tools" color="bg-yellow-500" on:click={handleCardClick} />
+      <KPICard title="Total Services" title2="" value={activeServices} icon="cogs" color="bg-purple-500" on:click={handleCardClick} />
     </div>
-  </div>
 
-  
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-2xl font-semibold mb-4">Order Categories</h2>
-      <canvas id="orderCategoryChart"></canvas>
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+      <h2 class="text-2xl font-semibold mb-4 text-gray-800">Orders by Stage</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        {#each ordersByStage.sort(sortStages) as { stage, count }}
+          <KPICard 
+            title={`Stage ${stage}`} 
+            title2={getStageTitle(stage)}
+            value={count} 
+            icon="layer-group" 
+            color={getStageColor(stage)} 
+            on:click={handleCardClick}
+          />
+        {/each}
+      </div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-2xl font-semibold mb-4">Top Customers</h2>
-      <table class="w-full">
-        <thead>
-          <tr>
-            <th class="text-left">Customer</th>
-            <th class="text-right">Total Orders</th>
-            <th class="text-right">Total Revenue</th>
+
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+      <h2 class="text-2xl font-semibold mb-4 text-gray-800">Order Aging Summary</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {#each Object.entries(agingData.summary) as [stage, data]}
+          <div class="bg-white rounded-lg shadow p-4">
+            <h3 class="text-lg font-semibold mb-2">{getStageTitle(parseInt(stage))}</h3>
+            <div class="flex justify-between">
+              <div class={`px-2 py-1 rounded ${getAgingColor(false)}`}>
+                On Time: {data.onTime}
+              </div>
+              <div class={`px-2 py-1 rounded ${getAgingColor(true)}`}>
+                Overdue: {data.overdue}
+              </div>
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+  <h2 class="text-2xl font-semibold mb-4 text-gray-800">Detailed Order Aging</h2>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SO Number</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stage</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age (Hours)</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {#each agingData.details as order}
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer"
+                on:click={() => handleSOClick(order.SOId)}>
+              {order.SONumber}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getStageTitle(order.stage)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.ageInHours}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <span class={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getAgingColor(order.isOverdue)}`}>
+                {order.isOverdue ? 'Overdue' : 'On Time'}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(order.lastUpdated)}</td>
           </tr>
-        </thead>
-        <tbody>
-          {#each topCustomers as customer}
-            <tr>
-              <td>{customer.name}</td>
-              <td class="text-right">{customer.totalOrders}</td>
-              <td class="text-right">₹{customer.totalRevenue.toLocaleString()}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+        {/each}
+      </tbody>
+    </table>
   </div>
-  
-  <div class="bg-white rounded-lg shadow p-6">
-<ReportGenerator 
-  {totalOrders}
-  {totalRevenue}
-  {activeInstallations}
-  {activeServices}
-  {orderCategories}
-  {ordersByStage}
-  {recentOrders}
-  {topCustomers}
-  {ordersByMonth}
-  {averageOrderValue}
-  {conversionRate}
-/>
+</div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800">Order Categories</h2>
+        <canvas id="orderCategoryChart"></canvas>
+      </div>
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800">Top Customers</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-gray-50">
+                <th class="text-left p-2">Customer</th>
+                <th class="text-right p-2">Total Orders</th>
+                <th class="text-right p-2">Total Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each topCustomers as customer}
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="p-2">{customer.name}</td>
+                  <td class="text-right p-2">{customer.totalOrders}</td>
+                  <td class="text-right p-2">₹{customer.totalRevenue.toLocaleString()}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <ReportGenerator 
+        {totalOrders}
+        {totalRevenue}
+        {activeInstallations}
+        {activeServices}
+        {orderCategories}
+        {ordersByStage}
+        {recentOrders}
+        {topCustomers}
+        {ordersByMonth}
+        {averageOrderValue}
+        {conversionRate}
+      />
+    </div>
   </div>
 </div>
 
 {#if showModal}
-  <Modal title={modalContent.title} on:close={closeModal} size='lg'>
-    <div class="p-6 bg-gray-50 rounded-lg">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div class="bg-white p-4 rounded-lg shadow-sm">
-          <h3 class="text-lg font-medium text-gray-900 mb-2">Total Orders</h3>
-          <p class="text-3xl font-bold text-blue-600">{modalContent.totalOrders}</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm">
-          <h3 class="text-lg font-medium text-gray-900 mb-2">Total Sum</h3>
-          <p class="text-3xl font-bold text-green-600">₹{modalContent.totalSum.toLocaleString()}</p>
+  <Modal title={modalContent.title} on:close={closeModal} size="xl" scrollableContent={true}>
+    <svelte:fragment slot="header">
+      <div class="bg-gray-50 p-4 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-white p-4 rounded-lg shadow-sm">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Total Orders</h3>
+            <p class="text-3xl font-bold text-blue-600">{modalContent.totalOrders}</p>
+          </div>
+          <div class="bg-white p-4 rounded-lg shadow-sm">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Total Sum</h3>
+            <p class="text-3xl font-bold text-green-600">₹{modalContent.totalSum.toLocaleString()}</p>
+          </div>
         </div>
       </div>
+    </svelte:fragment>
       
+    <div class="bg-white p-4">
       <Tabs tabs={['By Client', 'By Category', 'SO Numbers']} bind:activeTab>
-        {#if activeTab === 0}
-          <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client Name</th>
-                  <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                  <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sum</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                {#each Object.entries(modalContent.categorizedData.byClient) as [client, data]}
-                  <tr class="hover:bg-gray-50 transition-colors duration-150">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{client}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{data.orders}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">₹{data.sum.toLocaleString()}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {:else if activeTab === 1}
-          <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                  <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                  <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sum</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                {#each Object.entries(modalContent.categorizedData.byCategory) as [category, data]}
-                  <tr class="hover:bg-gray-50 transition-colors duration-150">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{category}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{data.orders}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">₹{data.sum.toLocaleString()}</td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {:else}
-          <div class="bg-white rounded-lg shadow-sm p-4">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">SO Numbers</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {#each modalContent.soNumbers as { SONumber, SOId }}
-                <div 
-                  class="bg-gray-100 rounded-lg p-3 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors duration-150"
-                  on:click={() => handleSOClick(SOId)}
-                >
-                  {SONumber}
+        <div class="overflow-x-auto">
+          <div class="inline-block min-w-full align-middle">
+            {#if activeTab === 0}
+              <div class="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client Name</th>
+                      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sum</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    {#each Object.entries(modalContent.categorizedData.byClient) as [client, data]}
+                      <tr class="hover:bg-gray-50 transition-colors duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{client}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{data.orders}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">₹{data.sum.toLocaleString()}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {:else if activeTab === 1}
+              <div class="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sum</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    {#each Object.entries(modalContent.categorizedData.byCategory) as [category, data]}
+                      <tr class="hover:bg-gray-50 transition-colors duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{category}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{data.orders}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">₹{data.sum.toLocaleString()}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {:else}
+              <div class="bg-white rounded-lg shadow-sm p-4">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">SO Numbers</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {#each modalContent.soNumbers as { SONumber, SOId }}
+                    <div 
+                      class="bg-gray-100 rounded-lg p-3 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors duration-150"
+                      on:click={() => handleSOClick(SOId)}
+                    >
+                      {SONumber}
+                    </div>
+                  {/each}
                 </div>
-              {/each}
-            </div>
+              </div>
+            {/if}
           </div>
-        {/if}
+        </div>
       </Tabs>
     </div>
-        <svelte:fragment slot="footer">
-      <button type="button" 
-              class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm transition duration-150 ease-in-out"
-              on:click={closeModal}>
-        Close
-      </button>
-    </svelte:fragment>
   </Modal>
 {/if}
+
 
 {#if isLoading}
   <div class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -463,6 +551,12 @@ function closeModal() {
     </div>
   </div>
 {/if}
+
+<style>
+  :global(body) {
+    background-color: #f3f4f6;
+  }
+</style>
 
 <script context="module">
 function getStageColor(stage) {

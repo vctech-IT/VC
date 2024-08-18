@@ -1,3 +1,4 @@
+//api/dashboard-data/+server.ts
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/database';
@@ -31,7 +32,8 @@ export const POST: RequestHandler = async ({ request }) => {
       ordersByStage,
       topCustomers,
       installationDetails,
-      serviceDetails
+      serviceDetails,
+      agingData
     ] = await Promise.all([
       db.stage0.count({ where: dateFilter }),
       db.stage0.aggregate({
@@ -78,6 +80,7 @@ export const POST: RequestHandler = async ({ request }) => {
         _count: { SONumber: true },
         _sum: { Total: true },
         orderBy: [{ _sum: { Total: 'desc' } }],
+        take: 10,
         where: dateFilter
       }),
       // Installation details
@@ -121,8 +124,22 @@ export const POST: RequestHandler = async ({ request }) => {
             }
           }
         }
-      })
+      }),
+          db.stageHistory.groupBy({
+            by: ['SONumber', 'stage'],
+            _max: {
+              timestamp: true
+            },
+            where: dateFilter,
+            orderBy: {
+              _max: {
+                timestamp: 'desc'
+              }
+            }
+          }),
     ]);
+
+    const processedAgingData = processAgingData(agingData, new Date());
 
     return json({
       totalOrders,
@@ -162,10 +179,52 @@ export const POST: RequestHandler = async ({ request }) => {
         engName: s.engName,
         scheduleDate: s.ScheduleDate,
         vendorName: s.VendorName
-      }))
+      })),
+      agingData: processedAgingData
     });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     return json({ error: 'Internal Server Error' }, { status: 500 });
   }
 };
+
+function processAgingData(agingData, currentDate) {
+  const stageLimits = {
+    0: 24 * 60 * 60 * 1000, // 24 hours
+    1: 24 * 60 * 60 * 1000, // 24 hours
+    2: 10 * 24 * 60 * 60 * 1000, // 10 days
+    3: 7 * 24 * 60 * 60 * 1000, // 7 days
+    4: 10 * 24 * 60 * 60 * 1000, // 10 days
+    5: 48 * 60 * 60 * 1000 // 48 hours
+  };
+
+  const summary = {
+    0: { onTime: 0, overdue: 0 },
+    1: { onTime: 0, overdue: 0 },
+    2: { onTime: 0, overdue: 0 },
+    3: { onTime: 0, overdue: 0 },
+    4: { onTime: 0, overdue: 0 },
+    5: { onTime: 0, overdue: 0 }
+  };
+
+  const details = agingData.map(item => {
+    const ageInMs = currentDate.getTime() - new Date(item._max.timestamp).getTime();
+    const isOverdue = ageInMs > stageLimits[item.stage];
+
+    if (isOverdue) {
+      summary[item.stage].overdue++;
+    } else {
+      summary[item.stage].onTime++;
+    }
+
+    return {
+      SONumber: item.SONumber,
+      stage: item.stage,
+      ageInHours: Math.round(ageInMs / (60 * 60 * 1000)),
+      isOverdue: isOverdue,
+      lastUpdated: item._max.timestamp
+    };
+  });
+
+  return { summary, details };
+}

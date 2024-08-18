@@ -37,9 +37,9 @@ export const load: PageServerLoad = async ({ locals, depends }) => {
       select: { email: true, username: true, phoneNo: true }
     });
 
-    for (const admin of adminUsers) {
-      await sendAdminNotification(pendingUsers, admin.email, admin.username);
-    }
+    // for (const admin of adminUsers) {
+    //   await sendAdminNotification(pendingUsers, admin.email, admin.username);
+    // }
   }
 
   return { pendingUsers, approvedUsers, roles, pendingUsersCount };
@@ -59,7 +59,7 @@ export const actions: Actions = {
       data: { isApproved: true }
     });
 
-    await sendUserApprovalNotification(updatedUser.email, updatedUser.username)
+   await sendUserApprovalNotification(updatedUser.email, updatedUser.username)
 
     return { success: true };
   },
