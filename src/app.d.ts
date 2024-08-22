@@ -13,6 +13,7 @@ declare global {
 					phoneNo: string
 					image: string
 					status: string
+					verificationToken: string;
 				}
 			}
 		interface PageData {
@@ -25,6 +26,7 @@ declare global {
 				role: string;
 				image: string;
 				status: string;
+				verificationToken: string;
 			}
 		}
 		// interface PageState {}
