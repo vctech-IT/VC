@@ -20,6 +20,20 @@
   let deleteError = '';
   let activeRole = 'ALL';
 
+  let loadingStates: { [key: string]: boolean } = {};
+
+  function handleFormSubmit(action: string, userId: string) {
+    return async () => {
+      loadingStates[userId] = true;
+      try {
+        await invalidate('app:users');
+        toast.success(`User ${action === 'approve' ? 'approved' : 'declined'} successfully`);
+      } finally {
+        loadingStates[userId] = false;
+      }
+    };
+  }
+
   $: filteredUsers = activeRole === 'ALL' 
     ? approvedUsers 
     : approvedUsers.filter(user => user.role.name === activeRole);
@@ -103,13 +117,6 @@
     } finally {
       isLoading = false;
     }
-  }
-
-  function handleFormSubmit(action: string) {
-    return async () => {
-      await invalidate('app:users');
-      toast.success(`User ${action === 'approve' ? 'approved' : 'declined'} successfully`);
-    };
   }
 
   onMount(() => {
@@ -233,30 +240,30 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(user.createdAt)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div class="flex flex-col sm:flex-row gap-2">
-                    <form method="POST" action="?/approve" use:enhance={handleFormSubmit('approve')} class="inline-block">
-                      <input type="hidden" name="userId" value={user.id} />
-                      <ClientOnlyTooltip content="Approve user">
-                        <button type="submit" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all duration-300 transform hover:scale-105" disabled={isLoading}>
-                          {#if isLoading}
-                            <span class="loader"></span>
-                          {:else}
-                            Approve
-                          {/if}
-                        </button>
-                      </ClientOnlyTooltip>
-                    </form>
-                    <form method="POST" action="?/decline" use:enhance={handleFormSubmit('decline')} class="inline-block">
-                      <input type="hidden" name="userId" value={user.id} />
-                      <ClientOnlyTooltip content="Decline user">
-                        <button type="submit" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition-all duration-300 transform hover:scale-105" disabled={isLoading}>
-                          {#if isLoading}
-                            <span class="loader"></span>
-                          {:else}
-                            Decline
-                          {/if}
-                        </button>
-                      </ClientOnlyTooltip>
-                    </form>
+                  <form method="POST" action="?/approve" use:enhance={handleFormSubmit('approve', user.id)} class="inline-block">
+                    <input type="hidden" name="userId" value={user.id} />
+                    <ClientOnlyTooltip content="Approve user">
+                      <button type="submit" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all duration-300 transform hover:scale-105" disabled={loadingStates[user.id]}>
+                        {#if loadingStates[user.id]}
+                          <span class="loader"></span>
+                        {:else}
+                          Approve
+                        {/if}
+                      </button>
+                    </ClientOnlyTooltip>
+                  </form>
+                  <form method="POST" action="?/decline" use:enhance={handleFormSubmit('decline', user.id)} class="inline-block">
+                    <input type="hidden" name="userId" value={user.id} />
+                    <ClientOnlyTooltip content="Decline user">
+                      <button type="submit" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition-all duration-300 transform hover:scale-105" disabled={loadingStates[user.id]}>
+                        {#if loadingStates[user.id]}
+                          <span class="loader"></span>
+                        {:else}
+                          Decline
+                        {/if}
+                      </button>
+                    </ClientOnlyTooltip>
+                  </form>
                   </div>
                 </td>
               </tr>
