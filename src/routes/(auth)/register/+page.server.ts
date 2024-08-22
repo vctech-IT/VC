@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit'
 import type { Action, Actions, PageServerLoad } from './$types'
 import bcrypt from 'bcrypt'
 import { db } from '$lib/database'
+import { sendAdminNotification } from '$lib/emailService'
 
 // // using an enum for user roles to avoid typos
 // // if you're not using TypeScript use an object
@@ -81,21 +82,53 @@ const register: Action = async ({ request }) => {
     if (phoneno) {
         return fail(400, { phoneno: true })
     }
+    try {
+      const newUser = await db.user.create({
+        data: {
+          username,
+          passwordHash: await bcrypt.hash(password, 10),
+          email,
+          phoneNo: phone,
+          userAuthToken: crypto.randomUUID(),
+          role: { connect: { name: role as Roles } },
+        },
+        include: { role: true }, // Include the role information
+      })
 
-    //creating the user in db
-  await db.user.create({
-    data: {
-      username,
-      passwordHash: await bcrypt.hash(password, 10),
-      email,
-      phoneNo: phone,
+      console.log('New user created:', newUser);
 
-      userAuthToken: crypto.randomUUID(),
-      role: { connect: { name: role as Roles } },
-    },
-  })
+      const adminUsers = await db.user.findMany({
+        where: { 
+          AND: [
+            { role: { name: 'ADMIN' } },
+            { isApproved: true }
+          ]
+        },
+        select: { email: true, username: true }
+      })
 
-  redirect(303, '/login')
+      console.log('Admin users found:', adminUsers);
+
+      for (const admin of adminUsers) {
+        console.log('Attempting to send email to admin:', admin.email);
+        await sendAdminNotification(newUser, admin.email, admin.username)
+      }
+
+      console.log('All admin notifications sent');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error during registration:', error)
+      return fail(500, { error: 'An error occurred during registration' })
+    }
 }
 
-export const actions: Actions = { register }
+export const actions: Actions = {
+  register: async (event) => {
+    const result = await register(event);
+    if (result && 'success' in result && result.success) {
+      throw redirect(303, '/login');
+    }
+    return result;
+  }
+};
