@@ -7,6 +7,26 @@
   import type { ActionData } from './$types';
   import "$lib/styles/app.css"
   import { enhance } from '$app/forms';
+  import Swal from 'sweetalert2';
+
+  let submitting = false;
+
+  function handleSubmit(event) {
+    submitting = true;
+    return async ({ result }) => {
+      submitting = false;
+      if (result.type === 'success') {
+        await Swal.fire({
+          title: 'Registration Successful!',
+          text: 'You have been registered successfully. Please wait for admin approval.',
+          icon: 'success',
+          confirmButtonText: 'OK'
+        });
+        // Redirect to login page
+        window.location.href = '/login';
+      }
+    };
+  }
 
   export let form: ActionData;
 
@@ -92,7 +112,7 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
         <h1 class="text-3xl font-bold text-gray-900">Create an Account</h1>
       </div>
 
-      <form action="?/register" method="POST" use:enhance class="space-y-3">
+      <form action="?/register" method="POST" use:enhance={handleSubmit} class="space-y-3">
         <div>
           <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
           <input 
@@ -238,9 +258,9 @@ $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;
         <button 
           type="submit" 
           class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
-          disabled={!emailValid || !phoneValid || !passwordsMatch}
+          disabled={!emailValid || !phoneValid || !passwordsMatch || submitting}
         >
-          Register
+          {submitting ? 'Registering...' : 'Register'}
         </button>
       </form>
 

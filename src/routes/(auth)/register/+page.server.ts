@@ -127,7 +127,7 @@ export const actions: Actions = {
   register: async (event) => {
     const result = await register(event);
     if (result && 'success' in result && result.success) {
-      throw redirect(303, '/login');
+      return { success: true };
     }
     return result;
   }

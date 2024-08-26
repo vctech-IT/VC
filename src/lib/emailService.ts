@@ -1,15 +1,40 @@
 // src/lib/emailService.ts
 import nodemailer from 'nodemailer';
+import { db } from './database';
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
   secure: false,
   auth: {
-    user: 'shubhamrane190@gmail.com',
-    pass: 'srux wqpj mmte dexb'
+    user: 'vctechops1@gmail.com',
+    pass: 'qlcj ztdf mnne icbr'
   }
 });
+
+export async function sendOTP(email: string, otp: string) {
+  const mailOptions = {
+    from: 'vctechops1@gmail.com',
+    to: email,
+    subject: 'Email Verification OTP',
+    text: `Your OTP for email verification is: ${otp}`
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+export function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+export async function storeOTP(email: string, otp: string) {
+  const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
+
+  await db.user.update({
+    where: { email },
+    data: { otp, otpExpires }
+  });
+}
 
 export async function sendUserDeclineNotification(userEmail: string, username: string) {
   try {
