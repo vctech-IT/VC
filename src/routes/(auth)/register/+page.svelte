@@ -10,20 +10,71 @@
   import Swal from 'sweetalert2';
 
   let submitting = false;
+  let verifying = false;
+  let verificationCode = '';
 
-  function handleSubmit(event) {
+  let userEmail = '';
+
+  async function handleSubmit(event) {
     submitting = true;
     return async ({ result }) => {
       submitting = false;
       if (result.type === 'success') {
         await Swal.fire({
           title: 'Registration Successful!',
-          text: 'You have been registered successfully. Please wait for admin approval.',
+          text: 'Please check your email for verification instructions.',
           icon: 'success',
           confirmButtonText: 'OK'
         });
-        // Redirect to login page
-        window.location.href = '/login';
+        
+        verifying = true;
+        const { value: code } = await Swal.fire({
+          title: 'Enter Verification Code',
+          input: 'text',
+          inputLabel: 'Your verification code',
+          inputPlaceholder: 'Enter your code',
+          showCancelButton: true,
+          inputValidator: (value) => {
+            if (!value) {
+              return 'You need to enter the verification code!';
+            }
+          }
+        });
+
+        if (code) {
+          try {
+            const response = await fetch('/api/verify-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ otp: code })
+            });
+            
+            if (!response.ok) {
+              throw new Error('Verification failed');
+            }
+            
+            await Swal.fire({
+              title: 'Email Verified!',
+              text: 'Your account has been successfully verified.',
+              icon: 'success'
+            });
+            window.location.href = '/login';
+          } catch (error) {
+            console.error('Verification error:', error);
+            Swal.fire({
+              title: 'Verification Failed',
+              text: 'Please try again or contact support.',
+              icon: 'error'
+            });
+          }
+        }
+        verifying = false;
+      } else if (result.type === 'failure') {
+        Swal.fire({
+          title: 'Registration Failed',
+          text: result.error || 'An error occurred during registration.',
+          icon: 'error'
+        });
       }
     };
   }
@@ -36,7 +87,7 @@
   let showConfirmPassword = false;
   let passwordsMatch = true;
   let password = '';
-let confirmPassword = '';
+  let confirmPassword = '';
 
 $: passwordsMatch = password === confirmPassword;
 $: showPasswordMismatchError = !passwordsMatch && password && confirmPassword;

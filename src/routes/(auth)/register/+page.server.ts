@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit'
 import type { Action, Actions, PageServerLoad } from './$types'
 import bcrypt from 'bcrypt'
 import { db } from '$lib/database'
-import { sendAdminNotification } from '$lib/emailService'
+import { sendAdminNotification, sendOTP } from '$lib/emailService'
 
 // // using an enum for user roles to avoid typos
 // // if you're not using TypeScript use an object
@@ -82,7 +82,9 @@ const register: Action = async ({ request }) => {
     if (phoneno) {
         return fail(400, { phoneno: true })
     }
-    try {
+  try {
+      const otp = generateOTP();
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
       const newUser = await db.user.create({
         data: {
           username,
@@ -91,9 +93,13 @@ const register: Action = async ({ request }) => {
           phoneNo: phone,
           userAuthToken: crypto.randomUUID(),
           role: { connect: { name: role as Roles } },
+          otp,
+          otpExpires,
         },
         include: { role: true }, // Include the role information
       })
+    
+      await sendOTP(newUser.email, otp);
 
       console.log('New user created:', newUser);
 
@@ -116,11 +122,18 @@ const register: Action = async ({ request }) => {
 
       console.log('All admin notifications sent');
 
-      return { success: true };
+        return {
+          success: true,
+          message: 'Please check your email for verification instructions.'
+        };
     } catch (error) {
       console.error('Error during registration:', error)
       return fail(500, { error: 'An error occurred during registration' })
     }
+}
+
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 export const actions: Actions = {

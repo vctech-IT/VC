@@ -14,13 +14,93 @@ const transporter = nodemailer.createTransport({
 
 export async function sendOTP(email: string, otp: string) {
   const mailOptions = {
-    from: 'vctechops1@gmail.com',
+    from: '"VC Tech" <vctechops1@gmail.com>',
     to: email,
-    subject: 'Email Verification OTP',
-    text: `Your OTP for email verification is: ${otp}`
+    subject: 'Email Verification Code',
+    html: `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Email Verification</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+          }
+          .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+          }
+          .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+          }
+          .content {
+            padding: 20px;
+          }
+          .otp-box {
+            background-color: #e8f5e9;
+            border: 2px solid #4CAF50;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 5px;
+          }
+          .footer {
+            background-color: #f8f8f8;
+            padding: 10px 20px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0; font-size: 24px;">Email Verification</h1>
+          </div>
+          <div class="content">
+            <p>Hello,</p>
+            <p>Thank you for registering with VC Tech. To complete your email verification, please use the following code:</p>
+            <div class="otp-box">
+              ${otp}
+            </div>
+            <p>Enter this code on the verification page to confirm your email address.</p>
+            <p>If you didn't request this verification, please ignore this email.</p>
+            <p>Best regards,<br>The VC Tech Team</p>
+          </div>
+          <div class="footer">
+            <p>This email was sent to ${email}. If you have any questions, please contact our support team.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('OTP sent successfully to', email);
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    throw error;
+  }
 }
 
 export function generateOTP() {
