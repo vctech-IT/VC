@@ -159,6 +159,10 @@
         Don't have an account? 
         <a href="/register" class="font-medium text-blue-600 hover:text-blue-500">Sign up now</a>
       </p>
+      <p class="mt-4 text-center text-sm text-gray-600">
+        Forgot your password? 
+        <a href="/forgot-password" class="font-medium text-blue-600 hover:text-blue-500">Reset it here</a>
+      </p>
     </div>
   </div>
 </div>

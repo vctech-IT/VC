@@ -12,6 +12,101 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+export async function sendPasswordResetEmail(email: string, resetToken: string) {
+  const resetUrl = `http://vc-tech.vercel.app/reset-password?token=${resetToken}`;
+
+  const mailOptions = {
+    from: '"VC Tech" <vctechops1@gmail.com>',
+    to: email,
+    subject: 'Password Reset Request',
+    html: `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+          }
+          .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+          }
+          .header {
+            background-color: #005a9e;
+            color: white;
+            padding: 20px;
+            text-align: center;
+          }
+          .content {
+            padding: 20px;
+          }
+          .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #005a9e;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+          }
+          .footer {
+            background-color: #f0f8ff;
+            padding: 10px 20px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0;">Password Reset</h1>
+          </div>
+          <div class="content">
+            <p>Hello,</p>
+            <p>We received a request to reset your password for your VC Tech account. If you didn't make this request, you can safely ignore this email.</p>
+            <p>To reset your password, click the button below:</p>
+            <p style="text-align: center;">
+              <a href="${resetUrl}" class="button">Reset Your Password</a>
+            </p>
+            <p>This link will expire in 1 hour for security reasons.</p>
+            <p>If you're having trouble clicking the button, copy and paste the URL below into your web browser:</p>
+            <p style="word-break: break-all;">${resetUrl}</p>
+            <p>If you have any questions or concerns, please don't hesitate to contact our support team.</p>
+            <p>Best regards,<br>The VC Tech Team</p>
+          </div>
+          <div class="footer">
+            <p>This email was sent to ${email}. If you have any questions, please contact our support team.</p>
+            <p style="color: #005a9e; font-style: italic;">Making Camera Smarter</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent successfully to', email);
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw error;
+  }
+}
+
 export async function sendOTP(email: string, otp: string) {
   const mailOptions = {
     from: '"VC Tech" <vctechops1@gmail.com>',
