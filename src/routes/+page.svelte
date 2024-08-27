@@ -334,10 +334,10 @@ function formatDate(date: string): string {
     <h1 class="text-4xl font-bold mb-6 text-gray-800">Dashboard</h1>
     
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-      <KPICard title="Total Orders" title2="" value={totalOrders} icon="shopping-cart" color="bg-blue-500" />
-      <KPICard title="Total Revenue" title2="" value={`₹${totalRevenue.toLocaleString()}`} icon="currency-rupee" color="bg-green-500" />
-      <KPICard title="Total Installations" title2="" value={activeInstallations} icon="tools" color="bg-yellow-500" on:click={handleCardClick} />
-      <KPICard title="Total Services" title2="" value={activeServices} icon="cogs" color="bg-purple-500" on:click={handleCardClick} />
+      <KPICard title="Total Orders" title2="Filter" value={totalOrders} icon="shopping-cart" color="bg-blue-500" />
+      <KPICard title="Total Revenue" title2="₹{totalRevenue.toLocaleString()}" value={`₹${totalRevenue.toLocaleString()}`} icon="currency-rupee" color="bg-green-500" />
+      <KPICard title="Total Installations" title2="Click For Details" value={activeInstallations} icon="tools" color="bg-yellow-500" on:click={handleCardClick} />
+      <KPICard title="Total Services" title2="Click For Details" value={activeServices} icon="cogs" color="bg-purple-500" on:click={handleCardClick} />
     </div>
 
     <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
@@ -348,7 +348,7 @@ function formatDate(date: string): string {
             title={`Stage ${stage}`} 
             title2={getStageTitle(stage)}
             value={count} 
-            icon="layer-group" 
+            icon="shopping-cart" 
             color={getStageColor(stage)} 
             on:click={handleCardClick}
           />
