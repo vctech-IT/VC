@@ -329,20 +329,20 @@ function formatDate(date: string): string {
   let isLoading = false;
 </script>
 
-<div class="min-h-screen bg-gray-100">
-  <div class="container mx-auto px-4 py-8">
+<div class="min-h-screen bg-gray-100 p-2 sm:p-4 md:p-6 lg:p-8">
+  <div class="max-w-7xl mx-auto">
     <h1 class="text-4xl font-bold mb-6 text-gray-800">Dashboard</h1>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
       <KPICard title="Total Orders" title2="" value={totalOrders} icon="shopping-cart" color="bg-blue-500" />
       <KPICard title="Total Revenue" title2="" value={`₹${totalRevenue.toLocaleString()}`} icon="currency-rupee" color="bg-green-500" />
       <KPICard title="Total Installations" title2="" value={activeInstallations} icon="tools" color="bg-yellow-500" on:click={handleCardClick} />
       <KPICard title="Total Services" title2="" value={activeServices} icon="cogs" color="bg-purple-500" on:click={handleCardClick} />
     </div>
 
-    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-      <h2 class="text-2xl font-semibold mb-4 text-gray-800">Orders by Stage</h2>
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
+    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
+      <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800">Orders by Stage</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         {#each ordersByStage.sort(sortStages) as { stage, count }}
           <KPICard 
             title={`Stage ${stage}`} 
@@ -356,17 +356,17 @@ function formatDate(date: string): string {
       </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-      <h2 class="text-2xl font-semibold mb-4 text-gray-800">Order Aging Summary</h2>
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+    <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
+      <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800">Order Aging Summary</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
         {#each Object.entries(agingData.summary) as [stage, data]}
-          <div class="bg-white rounded-lg shadow p-4">
-            <h3 class="text-lg font-semibold mb-2">{getStageTitle(parseInt(stage))}</h3>
-            <div class="flex justify-between">
-              <div class={`px-2 py-1 rounded ${getAgingColor(false)}`}>
+          <div class="bg-white rounded-lg shadow p-3 sm:p-4">
+            <h3 class="text-sm sm:text-base lg:text-lg font-semibold mb-2">{getStageTitle(parseInt(stage))}</h3>
+            <div class="flex flex-col sm:flex-row justify-between space-y-2 sm:space-y-0 sm:space-x-2">
+              <div class={`px-2 py-1 rounded text-xs sm:text-sm ${getAgingColor(false)}`}>
                 On Time: {data.onTime}
               </div>
-              <div class={`px-2 py-1 rounded ${getAgingColor(true)}`}>
+              <div class={`px-2 py-1 rounded text-xs sm:text-sm ${getAgingColor(true)}`}>
                 Overdue: {data.overdue}
               </div>
             </div>
@@ -375,9 +375,9 @@ function formatDate(date: string): string {
       </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-  <h2 class="text-2xl font-semibold mb-4 text-gray-800">Detailed Order Aging</h2>
-  <div class="overflow-x-auto">
+<div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
+  <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800">Detailed Order Aging</h2>
+    <div class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
@@ -410,13 +410,13 @@ function formatDate(date: string): string {
   </div>
 </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-2xl font-semibold mb-4 text-gray-800">Order Categories</h2>
-        <canvas id="orderCategoryChart"></canvas>
-      </div>
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-2xl font-semibold mb-4 text-gray-800">Top Customers</h2>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
+  <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800">Order Categories</h2>
+    <canvas id="orderCategoryChart"></canvas>
+  </div>
+  <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800">Top Customers</h2>
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead>

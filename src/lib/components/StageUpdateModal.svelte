@@ -26,21 +26,25 @@ export let lineItemsWithStatus: LineItem[]=[];
 export let dcBoxes: DCBox[]=[];
 export let Stage3Data: any;
 export let Stage4Data: any;
-
+export let Stage5Data: any;
 
 onMount(async () => {
   if (currentStage !== null && currentStage !== 0) {
     console.log("R u inside func");
     await fetchPreviousStagesData();
+    for (let i = 0; i < currentStage; i++) {
+      stageData[i].completed = true;
+    }
 
     console.log(" 0 DATA- ", Stage0Data);
     console.log(" itms DATA- ", lineItemsWithStatus);
     console.log(" dc DATA- ", dcBoxes);
     console.log(" 3 DATA- ", Stage3Data);
+    console.log(" 4 DATA- ", Stage4Data);
     console.log("hey");
   }})
 
-$: if (currentStage === null) {
+ if ( currentStage === 0) {
   currentStage = moveStage= 0;
   Stage0Data = {
       SONumber: salesOrder.salesorder_number,
@@ -107,8 +111,80 @@ $: if (currentStage === null) {
     Remark:'',
     Attachment:''
   }
+  Stage5Data = {
+    SONumber: salesOrder.salesorder_number,
+    accStatus:'', 
+    rejected :'',
+    rejectionRemark:'',
+    accountRemark:'',
+    retaccStatus:"",   
+    retrejected:'',
+    retrejectionRemark:'',
+    retaccountRemark:''
+  }
 }
 
+// Variables for dropped and monitoring states
+let isDropped = false;
+  let isMonitoring = false;
+  let showDroppedPopup = false;
+  let showMonitoringPopup = false;
+  let droppedRemarks = '';
+  let monitoringRemarks = '';
+  let submissionTime: Date | null = null;
+  let showDropdown = false;
+  let dropdownContainer: HTMLDivElement | null = null;
+
+
+function toggleDropdown() {
+  showDropdown = !showDropdown;
+}
+
+function handleClickOutside(event: MouseEvent): void {
+  if (dropdownContainer && !dropdownContainer.contains(event.target as Node)) {
+    showDropdown = false;
+  }
+}
+
+onMount(() => {
+  window.addEventListener('click', handleClickOutside);
+
+  return () => {
+    window.removeEventListener('click', handleClickOutside);
+  };
+});
+
+  // Functions for dropped and monitoring
+  function handleDroppedToggle(): void {
+    showDroppedPopup = true;
+    showDropdown = false;
+  }
+
+  function handleMonitoringToggle(): void {
+    showMonitoringPopup = true;
+    showDropdown = false;
+  }
+
+  function submitDropped(): void {
+    if (droppedRemarks.trim()) {
+    isDropped = true;
+    isMonitoring = false;
+    submissionTime = new Date();
+    showDroppedPopup = false;
+  } else {
+    alert("Please provide remarks before submitting.");
+  }
+}
+
+function submitMonitoring(): void {
+  if (monitoringRemarks.trim()) {
+    isMonitoring = true;
+    isDropped = false;
+    submissionTime = new Date();
+    showMonitoringPopup = false;
+  } else {
+    alert("Please provide remarks before submitting.");
+  }}
   let showDetailsPopup = false;
   let selectedDcDetails: DcBox['dcDetails'] | null = null;
 
@@ -203,6 +279,8 @@ async function validateAndShowDetails(dcNumber: string, index: number) {
     serialNo?: string;
     invoiceNo?: string;
     attachment?: string;
+    returnPickup?: boolean;
+    returnQuantity?: number;
   }
 
   interface DCBox {
@@ -235,7 +313,7 @@ async function validateAndShowDetails(dcNumber: string, index: number) {
 ];
 
   let isEditing = true;
-  let allStatusesFilled = false;
+  // let allStatusesFilled = false;
   let partialDelivery = false;
   let canAccessNextStage = false;
   let allItemsSaved = false;
@@ -294,16 +372,35 @@ function goToPreviousStage() {
   // Form submission and validation
   function handleSubmit(event: Event) {
     event.preventDefault();
-    if (currentStage === 2) {
+    if (currentStage === 1) {
+    if (!allLineItemsFrozen()) {
+      alert('Please ensure all line items are saved (Available, Need to purchase locally, or Not Required).');
+      return;
+    }
+
+    if (!allStatusesFilled) {
+      alert('Please select a status for all line items before submitting.');
+      return;
+    }
+
+    const unfilledDCs = dcBoxes.filter(dc => !dc.isSaved && !isCurrentDCFilled());
+    if (unfilledDCs.length > 0) {
+      alert('Please fill and save all DC details before submitting.');
+      return;
+    }
+
+    showConfirmationPopup = true;
+  } else {
+  if (currentStage === 2) {
     if (allItemsSaved) {
       showConfirmationPopup = true;
     } else {
       alert("Please save all items before submitting the stage.");
     }
-  } 
+  } else {
 
-    if (currentStage === (stageData[4].visible ? 5 : 4)) {
-      // Share with Account stage
+  if (currentStage === (stageData[4].visible ? 5 : 4)) {
+    // Share with Account stage
       const allItemsHaveStatus = [...shipments, returnPickup]
         .filter(item => item.isSaved)
         .every(item => item.accountStatus && item.accountRemark.trim());
@@ -316,15 +413,7 @@ function goToPreviousStage() {
     } else {
       showConfirmationPopup = true;
     }
-  
-    if (currentStage === 1){
-      if (lineItemsWithStatus.every(item => item.status === 'not_available')) {
-        // All items are not available, show confirmation dialog
-        if (confirm('All items are marked as Not Available. Do you want to proceed to Material to Procure stage?')) {
-          currentStage = 2; // Move to Material to Procure stage
-          notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available');
-        }
-      } 
+    } 
     }
   }
 
@@ -335,21 +424,30 @@ function goToPreviousStage() {
     if (currentStage < stageData.length - 1) {
       stageStartTimes[currentStage + 1] = getCurrentDateTime();
     }
-    
+    console.log("Stage0Data- ", Stage0Data);
     switch (currentStage) {
     case 0:
-      try {
-        await fetch(`/submit-stage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: currentStage, data: Stage0Data })});
-      }
-      catch (error) {
-          console.error('Error:', error);
-      } break;
+      if (!Stage0Data.clientExpectedDate) {
+      alert('Please fill Client Expected Date of Handover');
+      return;
+      } else{
+        try {
+          await fetch(`/submit-stage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stage: currentStage, data: Stage0Data })});
+        }
+        catch (error) {
+            console.error('Error:', error);
+        }} 
+        break;
       
       
     case 1:
+      if (!allLineItemsFrozen()) {
+      alert('Please ensure all line items are saved (Available, Need to purchase locally, or Not Required).');
+      return;
+      }
       if (!allStatusesFilled) {
         alert('Please select a status for all line items before submitting.');
         return;
@@ -362,6 +460,12 @@ function goToPreviousStage() {
         alert('Please fill all fields in the current DC before submitting.');
         return;
       }
+
+  const unfilledDCs = dcBoxes.filter(dc => !dc.isSaved && !isCurrentDCFilled());
+  if (unfilledDCs.length > 0) {
+    alert('Please fill and save all DC details before submitting.');
+    return;
+  }
       
       updateDCAmount(dcBoxes.length - 1);
       updateDCOrderTotal();
@@ -389,9 +493,18 @@ function goToPreviousStage() {
         }
       alert("Ongoing stage has completed");
       break;
-      case 4:
+    case 4:
     if (stageData[4].visible) {
       if (returnPickup.isSaved) {
+        try {
+          await fetch(`/submit-stage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stage: currentStage, data: Stage4Data })});
+        }
+        catch (error) {
+          console.error('Error:', error);
+        }
         alert("Return Pickup details submitted successfully.");
         stageData[4].completed = true;
         currentStage = 5; // Move to Share with Account stage
@@ -420,6 +533,15 @@ function goToPreviousStage() {
       alert(`Rejected items: ${rejectedItems.join(', ')}`);
       showRejectionAlert = true;
     }
+    try {
+          await fetch(`/submit-stage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stage: currentStage, data: Stage5Data })});
+        }
+        catch (error) {
+          console.error('Error:', error);
+        }
     break;
     }
 
@@ -502,9 +624,10 @@ function goToPreviousStage() {
     });
     // Implement actual saving logic here
   }
-  function canSaveDC(dc: DCBox): boolean {
-    return lineItemsWithStatus.every(item => item.status !== '');
-  }
+  function canSaveDC(dc: DCBox | undefined): boolean {
+  if (!dc) return false;
+  return lineItemsWithStatus.every(item => item.status !== '') && isCurrentDCFilled();
+}
 
   async function handleSave() {
     const currentDCIndex = dcBoxes.length - 1;
@@ -514,6 +637,17 @@ function goToPreviousStage() {
       alert('Please select a status for all line items before saving.');
       return;
     }
+
+    // If all items are Not Available, handle it differently
+  if (allItemsNotAvailable) {
+    lineItemsWithStatus.forEach(item => {
+      item.isAvailabilityFrozen = true;
+    });
+    notAvailableItems = [...lineItemsWithStatus];
+    alert('All items have been marked as Not Available and saved.');
+    canAccessNextStage = true;
+    return;
+  }
 
     // If the bill type hasn't been set yet (user didn't interact with the form),
     // set it now based on the current subtotal
@@ -544,7 +678,7 @@ function goToPreviousStage() {
 
   // Associate newly available or purchasable items with the current DC
   lineItemsWithStatus.forEach((item, index) => {
-    if ((item.status === 'available' || item.status === 'need_to_purchase') && !frozenLineItems[item.id]) {
+    if ((item.status === 'available' || item.status === 'need_to_purchase') && !frozenLineItems[item.Itemid]) {
       frozenLineItems[item.Itemid] = true;
       currentDC.lineItemIndices.push(index);
     }
@@ -574,6 +708,51 @@ function goToPreviousStage() {
       } else {
         alert('Progress saved. You can now add more DCs or proceed to the next stage.');
       }
+  function moveToMaterialToProcureStage() {
+  currentStage = 2; // Move to stage 2 (Material to Procure)
+  // You might want to perform any necessary initialization for stage 2 here
+}
+  }
+
+  function moveToMaterialToProcureStage() {
+  currentStage = 2; // Move to stage 2 (Material to Procure)
+  // You might want to perform any necessary initialization for stage 2 here
+  // For example:
+  notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available');
+}
+
+  function handleSaveAllNotAvailable() {
+  // Update notAvailableItems for the next stage
+  notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available');
+  
+  // Check if there are any newly available items
+  const newlyAvailableItems = lineItemsWithStatus.filter(item => 
+    item.status === 'available' || item.status === 'need_to_purchase'
+  );
+
+  
+  // Trigger reactivity
+  lineItemsWithStatus = [...lineItemsWithStatus];
+  
+  // Show confirmation message
+  alert('All items have been marked as Not Available and saved. Moving to the next stage.');
+   
+  // Mark the current stage as completed
+  stageData[currentStage].completed = true;
+  
+  // Save the current state
+  saveCurrentState();
+  
+  // Move to the next stage
+  goToNextStage();
+}
+
+function allLineItemsFrozen() {
+  return lineItemsWithStatus.every(item => 
+    frozenLineItems[item.Itemid] || 
+    item.status === 'not_available' || 
+    item.status === 'not_required'
+  );
   }
 
   // Function to remove DC
@@ -623,13 +802,17 @@ function setBillType(index: number) {
 }
 
   // Function to check if current DC is filled  
-  function isCurrentDCFilled() {
+  function isCurrentDCFilled(): boolean {
     const currentDC = dcBoxes[dcBoxes.length - 1];
-    return currentDC.DCNumber.trim() && 
-        currentDC.PODNo && 
-        currentDC.DispatchDate && 
-        currentDC.EstdDeliveryDate && 
-        (currentDC.attachment || currentDC.fileName || currentDC.filePreviewUrl);
+    return Boolean(
+      currentDC &&
+      currentDC.DCNumber.trim()!=='' && 
+        currentDC.PODNo.trim()!=='' && 
+        currentDC.DispatchDate !=='' && 
+        currentDC.EstdDeliveryDate !=='' && 
+        (currentDC.attachment || currentDC.fileName || currentDC.filePreviewUrl) &&
+        currentDC.status !==''
+  );
   }
 
 // Function to update DC amount
@@ -732,7 +915,36 @@ function updateDCAmount(dcIndex: number) {
     }
 
   // Function to open preview modal
-  function openPreviewModal(dcIndex: number) {
+  function openPreviewModal(file: File | null, fileUrl: string | null) {
+  const modal = document.getElementById('previewModal');
+  const previewImage = document.getElementById('previewImage') as HTMLImageElement;
+  const previewIframe = document.getElementById('previewIframe') as HTMLIFrameElement;
+  
+  if (modal && previewImage && previewIframe) {
+    modal.style.display = 'block';
+    const url = fileUrl || (file ? URL.createObjectURL(file) : null);
+    
+    if (!url) {
+      alert('No file to preview');
+      return;
+    }
+
+    if (file?.type === 'application/pdf' || (fileUrl && fileUrl.endsWith('.pdf'))) {
+      previewIframe.src = url;
+      previewIframe.style.display = 'block';
+      previewImage.style.display = 'none';
+    } else if (file?.type.startsWith('image/') || (fileUrl && /\.(jpeg|jpg|gif|png)$/i.test(fileUrl))) {
+      previewImage.src = url;
+      previewImage.style.display = 'block';
+      previewIframe.style.display = 'none';
+    } else {
+      alert('Unsupported file type for preview');
+      modal.style.display = 'none';
+      return;
+    }
+  }
+}
+  function openPreviewModalDC(dcIndex: number) {
     const dc = dcBoxes[dcIndex];
     if (dc.filePreviewUrl) {
       const modal = document.getElementById('previewModal');
@@ -756,9 +968,18 @@ function updateDCAmount(dcIndex: number) {
   // Function to close preview modal
   function closePreviewModal() {
     const modal = document.getElementById('previewModal');
+    const previewImage = document.getElementById('previewImage') as HTMLImageElement;
+    const previewIframe = document.getElementById('previewIframe') as HTMLIFrameElement;
     if (modal) {
       modal.style.display = 'none';
     }
+    if (previewImage) {
+    previewImage.src = '';
+  }
+  
+  if (previewIframe) {
+    previewIframe.src = '';
+  }
   }
 
  
@@ -850,7 +1071,7 @@ function handleSaveMaterialToProcure() {
   if (confirm(`Are you sure you want to update the following items?\n\n${itemSummary}`)) {
     itemsToUpdate.forEach(item => {
       item.isAvailabilityFrozen = true;
-      const index = lineItemsWithStatus.findIndex(lineItem => lineItem.id === item.id);
+      const index = lineItemsWithStatus.findIndex(lineItem => lineItem.Itemid === item.Itemid);
       if (index !== -1) {
         lineItemsWithStatus[index].status = item.isAvailable ? 'available' : 'need_to_purchase';
         lineItemsWithStatus[index].serialNo = item.serialNo;
@@ -858,9 +1079,9 @@ function handleSaveMaterialToProcure() {
         lineItemsWithStatus[index].attachment = item.attachment;
       }
       
-      if (!newlyAvailableItems.some(newItem => newItem.id === item.id)) {
+      if (!newlyAvailableItems.some(newItem => newItem.id === item.Itemid)) {
         newlyAvailableItems.push({
-          id: item.id,
+          id: item.Itemid,
           name: item.name,
           status: item.isAvailable ? 'available' : 'need_to_purchase'
         });
@@ -907,10 +1128,14 @@ function openPreviewModalMaterial(item: LineItem) {
       previewIframe.src = fileUrl;
       previewIframe.style.display = 'block';
       previewImage.style.display = 'none';
-    } else {
+    } else if (item.attachment.type.startsWith('image/')) {
       previewImage.src = fileUrl;
       previewImage.style.display = 'block';
       previewIframe.style.display = 'none';
+    } else {
+      alert('Unsupported file type for preview');
+      modal.style.display = 'none';
+      return;
     }
   }
 }
@@ -935,15 +1160,32 @@ function openPreviewModalMaterial(item: LineItem) {
       input.value = input.value.replace(/\D/g, '').slice(0, 10);
   }
 
+  function editShipment(index: number) {
+  shipments[index].isEditing = true;
+  shipments = [...shipments]; // Trigger reactivity
+}
+
+function cancelEdit(index: number) {
+  // Revert changes
+  shipments[index] = { ...shipments[index], isEditing: false };
+  // If you want to revert to the original data, you might need to keep a copy of the original data
+  // and restore it here
+  shipments = [...shipments]; // Trigger reactivity
+}
   async function saveShipment(index: number) {
   const shipment = shipments[index];
   if (isShipmentValid(shipment)) {
     shipment.isSaved = true;
+    shipment.isEditing = false;
     shipments = [...shipments];
     shipment.accountStatus = '';
     shipment.accountRemark = '';
-    
+    alert(`${shipment.activeTab === 'installation' ? 'Installation' : 'Service'} details ${shipment.isEditing ? 'updated' : 'saved'} successfully.`);
+    console.log('Saved shipment:', shipment);
 
+    // Update the Share with Account stage
+    updateShareWithAccountStage();
+  
     try {
       await fetch(`/submit-stage`, {
       method: 'POST',
@@ -962,6 +1204,12 @@ function openPreviewModalMaterial(item: LineItem) {
     console.log('Invalid shipment:', shipment); // Debug log
   }
   lastSavedTimes[currentStage] = getCurrentDateTime();
+}
+
+function updateShareWithAccountStage() {
+  // This function will update the Share with Account stage
+  // It will be called whenever a shipment is saved in the Ongoing stage
+  stageData[stageData[4].visible ? 5 : 4].visible = true;
 }
 
   function isShipmentValid(shipment: any): boolean {
@@ -1028,15 +1276,10 @@ function openPreviewModalMaterial(item: LineItem) {
   function previewFile(file: File | string | null) {
   if (!file) return;
 
-  const fileUrl = typeof file === 'string' ? file : URL.createObjectURL(file);
-  const fileName = typeof file === 'string' ? 'file' : file.name;
-  
-  const modal = document.getElementById('filePreviewModal');
-  const iframe = document.getElementById('filePreviewFrame') as HTMLIFrameElement;
-
-  if (modal && iframe) {
-    iframe.src = fileUrl;
-    modal.style.display = 'block';
+  if (typeof file === 'string') {
+    openPreviewModal(null, file);
+  } else {
+    openPreviewModal(file, null);
   }
 }
 
@@ -1055,12 +1298,6 @@ function downloadFile(file: File | undefined, fileName: string) {
     URL.revokeObjectURL(url);
 }
 
-function closeFilePreviewModal() {
-  const modal = document.getElementById('filePreviewModal');
-  if (modal) {
-    modal.style.display = 'none';
-  }
-}
 
 
 let returnPickup = {
@@ -1082,7 +1319,10 @@ let returnPickup = {
     dcAmount: '',
     dispatchedDate: '',
     deliveryDate: '',
-    dcaccountRemark: ''
+    dcaccountRemark: '',
+    selectedItems: []  as LineItem[],
+    approved: false,
+    approvalRemark: '',
   };
 
   let returnPickupRequested = false;
@@ -1108,15 +1348,38 @@ let returnPickup = {
 
 function saveReturnPickupDetails() {
   if (Stage4Data.ReturnPickupName && Stage4Data.ReturnPickupMobile.length === 10 && Stage4Data.ReturnPickupRemark) {
-    showReturnPickupConfirmation = true;
+    const selectedItems = lineItemsWithStatus.filter(item => item.returnPickup);
+    if (selectedItems.length > 0) {
+      showReturnPickupConfirmation = true;
+    } else {
+      alert("Please select at least one item for return pickup.");
+    }
   } else {
     alert("Please fill in all fields correctly before saving.");
   }
 }
 
+function editQuantity(item: LineItem) {
+  const newQuantity = prompt(`Enter new quantity for ${item.name}:`, item.returnQuantity?.toString() ?? item.quantity.toString());
+  if (newQuantity !== null) {
+    const quantity = parseFloat(newQuantity);
+    if (!isNaN(quantity) && quantity > 0) {
+      item.returnQuantity = quantity;
+    } else {
+      alert("Please enter a valid quantity.");
+    }
+  }
+}
 async function confirmReturnPickup() {
   showReturnPickupConfirmation = false;
   returnPickupDetailsSaved = true;
+  returnPickup.selectedItems = lineItemsWithStatus
+    .filter(item => item.returnPickup)
+    .map(item => ({
+      ...item,
+      quantity: item.returnQuantity ?? item.quantity,
+      item_total: (item.returnQuantity ?? item.quantity) * item.rate
+    }));
   try {
     await fetch(`/submit-stage`, {
     method: 'POST',
@@ -1126,6 +1389,14 @@ async function confirmReturnPickup() {
   }
   catch (error) {
     console.error('Error:', error);
+
+  function previewReturnPickupFile() {
+  if (returnPickup.file) {
+    openPreviewModal(returnPickup.file, null);
+  } else if (returnPickup.filePreviewUrl) {
+    openPreviewModal(null, returnPickup.filePreviewUrl);
+  }
+}
   }
   
 }
@@ -1134,13 +1405,7 @@ async function confirmReturnPickup() {
 
 function handleReturnPickupMobileInput(event: Event) {
   const input = event.target as HTMLInputElement;
-  const oldValue = input.value;
-  const newValue = oldValue.replace(/\D/g, '').slice(0, 10);
-  
-  if (oldValue !== newValue) {
-       Stage4Data.ReturnPickupMobile = newValue;
-    alert("Please enter only digits. The mobile number should be 10 digits long.");
-  }
+  input.value = input.value.replace(/\D/g, '').slice(0, 10);
 }
 
   async function handleReturnPickupFileChange(event: Event, index: number) {
@@ -1148,9 +1413,10 @@ function handleReturnPickupMobileInput(event: Event) {
   const file = input.files?.[0];
   
   if (file && !returnPickup.isSaved) {
-      returnPickup.file = file;
-      returnPickup.fileName = file.name;
-      returnPickup = {...returnPickup}; // Trigger reactivity
+      const base64String = await convertFileToBase64(file);
+      Stage4Data.Attachment= base64String;
+      Stage4Data.fileName = file.name;
+      // returnPickup = {...returnPickup}; // Trigger reactivity
     }
     lastSavedTimes[currentStage] = getCurrentDateTime();
   }
@@ -1167,16 +1433,16 @@ function handleReturnPickupMobileInput(event: Event) {
 
   function isReturnPickupComplete(): boolean {
     return (
-      returnPickup.name.trim() !== '' &&
-      returnPickup.mobile.length === 10 &&
-      returnPickup.remark.trim() !== '' &&
-      returnPickup.file !== null &&
-      returnPickup.dcNumber.trim() !== '' &&
-      returnPickup.trackingNo.trim() !== '' &&
-      returnPickup.dcAmount.trim() !== '' &&
-      returnPickup.dispatchedDate !== '' &&
-      returnPickup.deliveryDate !== '' &&
-      returnPickup.dcaccountRemark.trim() !== ''
+      Stage4Data.ReturnPickupName.trim() !== '' &&
+      Stage4Data.ReturnPickupMobile.length === 10 &&
+      Stage4Data.ReturnPickupRemark.trim() !== '' &&
+      Stage4Data.Attachment !== null &&
+      Stage4Data.DCNumber.trim() !== '' &&
+      Stage4Data.CourierTrackNo.trim() !== '' &&
+      Stage4Data.DCAmount !== null &&
+      Stage4Data.DispatchDate !== '' &&
+      Stage4Data.DeliveryDate !== '' &&
+      Stage4Data.Remark.trim() !== ''
     );
   }
 
@@ -1206,6 +1472,10 @@ function handleReturnPickupMobileInput(event: Event) {
     returnPickup.dcAmount = formatted;
 }
 
+let stageStartTimes: { [key: number]: string } = {};
+let lastSavedTimes: { [key: number]: string } = {};
+let lastSubmittedTimes: { [key: number]: string } = {};
+
 function getCurrentDateTime(): string {
   return new Date().toLocaleString();
 }
@@ -1227,13 +1497,16 @@ function updateDeliveryDateMin() {
   let canEditOngoing = false;
   let canEditReturnPickup = false;
 
+  function handleKeydown(event: { key: string; }) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    closePreviewModal();
+  }
+}
+
   // Reactive statements
   $: {
-    if (returnPickupRequested) {
-      stageData[4].visible = true;
-    } else {
-      stageData[4].visible = false;
-    }
+    stageData[4].visible = returnPickupRequested;
+    stageData = stageData; // Trigger reactivity
   }
 
   $: {
@@ -1257,10 +1530,11 @@ function updateDeliveryDateMin() {
 }
 $: allItemsNotAvailable = lineItemsWithStatus.every(item => item.status === 'not_available');
 
-  // Time tracking
-  let stageStartTimes: { [key: number]: string } = {};
-  let lastSavedTimes: { [key: number]: string } = {};
-  let lastSubmittedTimes: { [key: number]: string } = {};
+$: canSubmitLogistics = allLineItemsFrozen() && allStatusesFilled && dcBoxes.every(dc => dc.isSaved || isCurrentDCFilled());
+
+$: visibleStages = isDropped || isMonitoring 
+    ? stageData.filter(stage => stage.completed)
+    : stageData;
 
   async function handleFieldUpdate(fieldName: string, oldValue: string, newValue: string) {
     const action = `Updated ${fieldName} from "${oldValue}" to "${newValue}"`;
@@ -1389,24 +1663,49 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 </script>
 
 
-<div role="dialog"
-  aria-labelledby="modal-title" 
-  class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" on:click|self={closeModal}>
-  <div class="relative top-20 mx-auto p-8 border w-11/12 max-w-4xl shadow-lg rounded-lg bg-white">
-    <button 
-      on:click={closeModal}
-      class="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-      aria-label="Close modal"
-    >
-      <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
+<div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" 
+     on:click|self={closeModal}
+     on:keydown={(e) => e.key === 'Escape' && closeModal()}
+     role="button"
+     tabindex="0">
+  <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
 
-    <h2 id="modal-title" class="text-3xl font-bold mb-6 text-gray-800">Stages</h2>
+    <div class="relative flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-bold">Stages</h2>
+      <div class="relative" bind:this={dropdownContainer}>
+        <button 
+          class="text-2xl font-bold focus:outline-none"
+          on:click={toggleDropdown}
+        >
+          ⋮
+        </button>
+        {#if showDropdown}
+          <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+            <button 
+              class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              on:click={handleDroppedToggle}
+            >
+              Dropped (Void)
+            </button>
+            <button 
+              class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              on:click={handleMonitoringToggle}
+            >
+              Monitoring Billing
+            </button>
+          </div>
+        {/if}
+      </div>
+    </div>
+    
+    {#if isDropped || isMonitoring}
+      <div class="status-box bg-yellow-100 border border-yellow-200 rounded-lg p-6 mb-12 text-center font-medium text-lg shadow-md">
+        <p>{isDropped ? "SO is Void :" : "Bill is getting Monitored :"}</p>
+        <p class="mt-2 text-sm">{isDropped ? droppedRemarks : monitoringRemarks}</p>
+      </div>
+    {/if}    
     
     <!-- Stage navigation -->
-
     <div class="mb-8 flex flex-wrap justify-center gap-3">
       {#each stageData as stage, index}
         {#if stage.visible !== false}
@@ -1428,8 +1727,69 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       {/each}
     </div>
 
-    <div class="bg-white p-6 rounded-lg shadow-md">
-      <form on:submit|preventDefault={handleSubmit}>
+    {#if showDroppedPopup}
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 max-w-md w-full">
+        <h2 class="text-2xl font-bold mb-4">Dropped (Void)</h2>
+        <label class="block mb-4">
+          <span class="text-gray-700">Remarks:</span>
+          <textarea
+            bind:value={droppedRemarks}
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            rows="3"
+          ></textarea>
+        </label>
+        <div class="flex justify-end">
+          <button
+            on:click={() => showDroppedPopup = false}
+            class="mr-2 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            on:click={submitDropped}
+            class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            disabled={!droppedRemarks.trim()}
+          >
+            Submit
+          </button>
+        </div>
+      </div>
+    </div>
+    {/if}
+    
+    {#if showMonitoringPopup}
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 max-w-md w-full">
+        <h2 class="text-2xl font-bold mb-4">Monitoring Billing</h2>
+        <label class="block mb-4">
+          <span class="text-gray-700">Remarks:</span>
+          <textarea
+            bind:value={monitoringRemarks}
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+            rows="3"
+          ></textarea>
+        </label>
+        <div class="flex justify-end">
+          <button
+            on:click={() => showMonitoringPopup = false}
+            class="mr-2 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            on:click={submitMonitoring}
+            class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            disabled={!monitoringRemarks.trim()}
+          >
+            Submit
+          </button>
+        </div>
+      </div>
+    </div>
+    {/if}
+
+    <form on:submit={handleSubmit}>
     <!-- Stage header -->
       <h3 class="text-2xl font-bold mb-6 text-gray-800">{stageData[currentStage].title}</h3>
 
@@ -1505,10 +1865,10 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         type="date" 
         id="client_expected_date" 
         bind:value={Stage0Data.clientExpectedDate} 
-        on:change={(e) => handleFieldUpdate("Client Expected Date of Handover", Stage0Data.clientExpectedDate, e.target.value)}
+        on:input={(e) => Stage0Data.clientExpectedDate = e.target.value} 
         min={minDate}
         class="w-full px-3 py-2 border rounded-md" 
-        disabled={!isEditing} 
+       
         required
       >
     </div>
@@ -1589,15 +1949,6 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           </div>
           <!-- New reactive statement to check if all items are Not Available or Not Required -->
   
-          {#if lineItemsWithStatus.every(item => item.status === 'not_available')}
-          <div class="mt-4 mb-4 text-center text-lg font-bold text-red-600">
-            All items are marked as Not Available. You can submit directly.
-          </div>
-        {:else if lineItemsWithStatus.every(item => item.status === 'not_required')}
-          <div class="mt-4 mb-4 text-center text-lg font-bold text-green-600">
-            All items are marked as Not Required. You can submit directly.
-          </div>
-        {:else}
         <!-- Partial Delivery toggle -->
   {#if lineItemsWithStatus.some(item => item.status === 'not_available')}
   <div class="mt-4">
@@ -1622,6 +1973,20 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   </div>
 </div>
 
+{#if allItemsNotAvailable}
+ <div class="mt-4 mb-4 text-center text-lg font-bold text-red-600">
+   All items are marked as Not Available. Please save before proceeding.
+ </div>
+ <div class="flex justify-center mt-4">
+   <button 
+     type="button" 
+     on:click={handleSaveAllNotAvailable} 
+     class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+   >
+     Save All Not Available
+   </button>
+ </div>
+{:else}
          <!-- Display current unsaved total -->
   <!-- <div class="mt-4">
     <h4 class="text-lg font-bold mb-2 inline-block mr-2">Current Unsaved Total:</h4>
@@ -1653,6 +2018,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                         placeholder={dc.billType === 'E-way' ? "Enter E-way number" : "Enter DC number"}
                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
                         disabled={dc.isSaved}
+                        on:focus={() => setBillType(index)}
                       >
                       {#if dc.status}
                       <div class="mb-4">
@@ -1797,7 +2163,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             <span class="text-sm text-gray-600">{dc.fileName || 'File uploaded'}</span>
             <button 
               type="button" 
-              on:click={() => openPreviewModal(index)}
+              on:click={() => openPreviewModalDC(index)}
               class="text-blue-600 hover:text-blue-800 ml-2"
             >
               Preview
@@ -1816,9 +2182,9 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                   <!-- Preview Modal -->
                   <div id="previewModal" class="modal" style="display:none; position:fixed; z-index:1; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
                     <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%;">
-                      <span class="close" on:click={closePreviewModal} style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+                      <button type="button" class="close" on:click={closePreviewModal} on:keydown={handleKeydown} style="background:none; border:none; color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;" aria-label="Close preview">&times;</button>
                       <img id="previewImage" alt="File preview" style="max-width:100%; max-height:70vh; display:none;">
-                      <iframe id="previewIframe" style="width:100%; height:70vh; display:none;"></iframe>
+                      <iframe id="previewIframe" style="width:100%; height:70vh; display:none;" title="File preview content"></iframe>
                     </div>
                   </div>
 
@@ -1905,18 +2271,18 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          {#each notAvailableItems as item, index (item.id)}
+          {#each notAvailableItems as item, index (item.Itemid)}
             <tr>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.name}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.quantity} {item.unit}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.rate)}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.item_total)}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.amount)}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <input 
                   type="checkbox" 
                   bind:checked={item.isAvailable} 
-                  on:change={() => handleAvailabilityChange(item.id, 'available')}
+                  on:change={() => handleAvailabilityChange(item.Itemid, 'available')}
                   disabled={item.isAvailabilityFrozen || item.needToPurchaseLocally}
                 >
                 {#if item.isAvailable}
@@ -1927,7 +2293,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 <input 
                   type="checkbox" 
                   bind:checked={item.needToPurchaseLocally} 
-                  on:change={() => handleAvailabilityChange(item.id, 'need_to_purchase')}
+                  on:change={() => handleAvailabilityChange(item.Itemid, 'need_to_purchase')}
                   disabled={item.isAvailabilityFrozen || item.isAvailable}
                 >
                 {#if item.needToPurchaseLocally}
@@ -1940,31 +2306,31 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 <td colspan="7" class="px-6 py-4">
                   <div class="flex space-x-4">
                     <div class="flex-1">
-                      <label for="serial-no-{item.id}" class="block text-sm font-medium text-gray-700">Serial No.: *</label>
+                      <label for="serial-no-{item.Itemid}" class="block text-sm font-medium text-gray-700">Serial No.: *</label>
                       <input 
                         type="text" 
-                        id="serial-no-{item.id}" 
+                        id="serial-no-{item.Itemid}" 
                         bind:value={item.serialNo} 
                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
                         required
                       >
                     </div>
                     <div class="flex-1">
-                      <label for="invoice-no-{item.id}" class="block text-sm font-medium text-gray-700">Invoice No.: *</label>
+                      <label for="invoice-no-{item.Itemid}" class="block text-sm font-medium text-gray-700">Invoice No.: *</label>
                       <input 
                         type="text" 
-                        id="invoice-no-{item.id}" 
+                        id="invoice-no-{item.Itemid}" 
                         bind:value={item.invoiceNo} 
                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
                         required
                       >
                     </div>
                     <div class="flex-1">
-                      <label for="attachment-{item.id}" class="block text-sm font-medium text-gray-700">Attachment:</label>
+                      <label for="attachment-{item.Itemid}" class="block text-sm font-medium text-gray-700">Attachment:</label>
                       <input 
                         type="file" 
-                        id="attachment-{item.id}" 
-                        on:change={(e) => handleAttachmentChange(e, item.id)}
+                        id="attachment-{item.Itemid}" 
+                        on:change={(e) => handleAttachmentChange(e, item.Itemid)}
                         class="mt-1 block w-full"
                         accept="application/pdf,image/*"
                       >
@@ -2013,11 +2379,18 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 {/if}
 
 <!-- Preview Modal -->
-<div id="previewModal" class="modal" style="display:none; position:fixed; z-index:1; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
-  <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%;">
-    <span class="close" on:click={closePreviewModal} style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
-    <img id="previewImage" alt="File preview" style="max-width:100%; max-height:70vh; display:none;">
-    <iframe id="previewIframe" style="width:100%; height:70vh; display:none;"></iframe>
+<div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
+  <div class="modal-content relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+    <div class="flex justify-between items-center pb-3">
+      <p class="text-2xl font-bold">File Preview</p>
+      <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" on:click={closePreviewModal}>
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+      </button>
+    </div>
+    <div class="mt-4">
+      <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
+      <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+    </div>
   </div>
 </div>
  
@@ -2033,6 +2406,11 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
               <strong class="font-bold">Rejected:</strong>
               <span class="block sm:inline"> {shipment.rejectionRemark}</span>
             </div>
+            {:else if shipment.approved}
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+              <strong class="font-bold">Approved:</strong>
+              <span class="block sm:inline"> {shipment.accountRemark}</span>
+            </div>
           {/if}
           
           <!-- Dynamic header based on active tab -->
@@ -2045,24 +2423,24 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             <button
               class="px-4 py-2 {Stage3Data.activeTab === 'installation' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-l"
               on:click={() => {
-                if (!shipment.isSaved) {
+                if (!shipment.isSaved || shipment.isEditing) {
                   Stage3Data.activeTab = 'installation';
                   shipments = [...shipments];
                 }
               }}
-              disabled={shipment.isSaved}
+              disabled={shipment.isSaved && !shipment.isEditing}
             >
               Installation
             </button>
             <button
               class="px-4 py-2 {Stage3Data.activeTab === 'service' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-r"
               on:click={() => {
-                if (!shipment.isSaved) {
+                if (!shipment.isSaved || shipment.isEditing) {
                   Stage3Data.activeTab = 'service';
                   shipments = [...shipments];
                 }
               }}
-              disabled={shipment.isSaved}
+              disabled={shipment.isSaved && !shipment.isEditing}
             >
               Service
             </button>
@@ -2155,7 +2533,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                   min={new Date().toISOString().split('T')[0]} 
                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
                   required 
-                  disabled={shipment.isSaved}
+                  disabled={shipment.isSaved && !shipment.isEditing}
                 >
               </div>
             </div>
@@ -2171,7 +2549,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                     pattern="[0-9]{10}"
                     maxlength="10"
                     required
-                    disabled={shipment.isSaved}
+                    disabled={shipment.isSaved && !shipment.isEditing}
                   >
               </div>
               <div>
@@ -2186,7 +2564,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label for="service-report-{index}" class="block text-sm font-medium text-gray-700">Service report attachment:</label>
-                {#if !shipment.isSaved}
+                {#if !shipment.isSaved || shipment.isEditing}
                 <input type="file" id="service-report-{index}" on:change={(e) => handleStage3FileChange(e, 'service', index)} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="mt-1 block w-full" required>
                 {/if}
                 {#if Stage3Data.Report}
@@ -2217,13 +2595,30 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           </div>
         {/if}
 
-        {#if !shipment.isSaved}
+        {#if !shipment.isSaved || shipment.isEditing}
           <button 
             type="button" 
             on:click={() => saveShipment(index)}
             class="mt-14 absolute down-2 right-2 px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
           >
-            Save 
+          {shipment.isEditing ? 'Update' : 'Save'}
+        </button>
+        {#if shipment.isEditing}
+          <button 
+            type="button" 
+            on:click={() => cancelEdit(index)}
+            class="mt-4 absolute bottom-2 right-24 px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Cancel
+          </button>
+        {/if}
+      {:else}
+        <button 
+          type="button" 
+          on:click={() => editShipment(index)}
+          class="mt-4 absolute bottom-2 right-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Edit
           </button>
         {/if}
       </div>
@@ -2232,17 +2627,29 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   </div>
   
   <!-- File Preview Modal -->
-  <div id="filePreviewModal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <span class="close" on:click={closeFilePreviewModal}>&times;</span>
-      <iframe id="filePreviewFrame" style="width: 100%; height: 500px;"></iframe>
+  <!-- Preview Modal -->
+<div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
+  <div class="modal-content relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+    <div class="flex justify-between items-center pb-3">
+      <p class="text-2xl font-bold">File Preview</p>
+      <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" on:click={closePreviewModal}>
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+      </button>
+    </div>
+    <div class="mt-4">
+      <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
+      <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+    </div>
     </div>
   </div>
         
         <!-- Return Pickup toggle button -->
         <button 
           type="button" 
-          on:click={toggleReturnPickup}
+          on:click={() => {
+            returnPickupRequested = !returnPickupRequested;
+            stageData = [...stageData]; // Trigger reactivity
+          }}
           class="mt-4 mb-4 px-4 py-2 {returnPickupRequested ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded absolute bottom-2 left-2"
           disabled={returnPickupDetailsSaved} 
         >
@@ -2291,6 +2698,56 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                disabled={returnPickupDetailsSaved}
              ></textarea>
            </div>
+
+         <!-- Line Items -->
+<div class="mt-4">
+  <h5 class="text-md font-semibold mb-2">Line Items for Return Pickup</h5>
+  <table class="min-w-full divide-y divide-gray-200">
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Return Pickup</th>
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {#each lineItemsWithStatus as item (item.id)}
+        <tr>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.name}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 relative group">
+            {item.returnQuantity ?? item.quantity} {item.unit}
+            {#if !returnPickupDetailsSaved}
+            <button
+            type="button"
+            class="hidden group-hover:inline-flex items-center ml-2 cursor-pointer text-xs bg-transparent border-none p-0"
+            on:click={() => editQuantity(item)}
+            on:keydown={(e) => e.key === 'Enter' && editQuantity(item)}
+            aria-label="Edit quantity"
+          >
+            <span aria-hidden="true">✏️</span>
+            <span>Edit</span>
+          </button>
+            {/if}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.rate)}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {formatCurrency((item.returnQuantity ?? item.quantity) * item.rate)}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            <input 
+              type="checkbox" 
+              bind:checked={item.returnPickup}
+              disabled={returnPickupDetailsSaved}
+            >
+          </td>
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+</div>
+
            {#if !returnPickupDetailsSaved}
              <button 
                type="button" 
@@ -2337,6 +2794,11 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         <strong class="font-bold">Rejected:</strong>
         <span class="block sm:inline"> {returnPickup.rejectionRemark}</span>
     </div>
+    {:else if returnPickup.approved}
+      <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <strong class="font-bold">Approved:</strong>
+        <span class="block sm:inline"> {returnPickup.approvalRemark}</span>
+      </div>
   {/if}
   <h4 class="text-lg font-bold mb-4">Return Pickup Report</h4>
 
@@ -2347,7 +2809,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             <input 
               type="text" 
               id="return-pickup-name" 
-              bind:value={returnPickup.name} 
+              bind:value={Stage4Data.ReturnPickupName} 
               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
               required
               disabled={returnPickup.isSaved}
@@ -2358,7 +2820,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         <input 
           type="tel" 
           id="return-pickup-mobile" 
-              bind:value={returnPickup.mobile} 
+              bind:value={Stage4Data.ReturnPickupMobile} 
               on:input={handleReturnPickupMobileInput}
           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
           pattern="[0-9]{10}"
@@ -2373,12 +2835,37 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <label for="return-pickup-remark" class="block text-sm font-medium text-gray-700">Project Manager's Remark:</label>
           <textarea 
             id="return-pickup-remark" 
-            bind:value={returnPickup.remark} 
+            bind:value={Stage4Data.ReturnPickupRemark} 
         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
         rows="3" 
         required
         disabled={returnPickup.isSaved}
       ></textarea>
+    </div>
+
+    <!-- Selected Line Items for Return Pickup -->
+<div class="mt-4">
+ <h5 class="text-md font-semibold mb-2">Items for Return Pickup</h5>
+ <table class="min-w-full divide-y divide-gray-200">
+   <thead class="bg-gray-50">
+     <tr>
+       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
+       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+     </tr>
+   </thead>
+   <tbody class="bg-white divide-y divide-gray-200">
+     {#each lineItemsWithStatus.filter(item => item.returnPickup) as item (item.id)}
+       <tr>
+         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.name}</td>
+         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.returnQuantity ?? item.quantity} {item.unit}</td>
+         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.rate)}</td>
+         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency((item.returnQuantity ?? item.quantity) * item.rate)}</td>
+       </tr>
+     {/each}
+   </tbody>
+ </table>
     </div>
   </div>
 
@@ -2389,7 +2876,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <input 
         type="text" 
         id="dc-number" 
-        bind:value={returnPickup.dcNumber} 
+        bind:value={Stage4Data.DCNumber} 
         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
         required
         disabled={returnPickup.isSaved}
@@ -2400,7 +2887,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <input 
         type="text" 
         id="tracking-no" 
-        bind:value={returnPickup.trackingNo} 
+        bind:value={Stage4Data.CourierTrackNo} 
         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
         required
         disabled={returnPickup.isSaved}
@@ -2409,9 +2896,9 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
     <div class="flex-1">
       <label for="dc-amount" class="block text-sm font-medium text-gray-700">DC Amount:</label>
       <input 
-        type="text" 
+        type="number" 
         id="dc-amount" 
-        bind:value={returnPickup.dcAmount} 
+        bind:value={Stage4Data.DCAmount} 
         on:input={formatAmountreturn}
         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
         required
@@ -2425,7 +2912,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <input 
         type="date" 
         id="dispatched-date" 
-            bind:value={returnPickup.dispatchedDate} 
+            bind:value={Stage4Data.DispatchDate} 
             on:change={updateDeliveryDateMin}
         max={getCurrentDate()}
         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
@@ -2438,7 +2925,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <input 
         type="date" 
         id="delivery-date" 
-        bind:value={returnPickup.deliveryDate} 
+        bind:value={Stage4Data.DeliveryDate} 
         min={returnPickup.dispatchedDate}
         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
         required
@@ -2450,7 +2937,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
     <label for="return-pickup-remark" class="block text-sm font-medium text-gray-700">Remark:</label>
     <textarea 
     id="return-pickup-remark" 
-    bind:value={returnPickup.dcaccountRemark} 
+    bind:value={Stage4Data.Remark} 
       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
       rows="3" 
       required
@@ -2474,7 +2961,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             <span class="text-sm text-gray-600">{returnPickup.fileName || 'File uploaded'}</span>
         <button 
           type="button" 
-          on:click={() => previewFile(returnPickup.file)}
+          on:click={previewReturnPickupFile}
               class="text-blue-600 hover:text-blue-800 ml-2"
         >
           Preview
@@ -2502,65 +2989,74 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 </div>
 
 
-<!-- File Preview Modal -->
-<div id="filePreviewModal" class="modal" style="display: none;">
-<div class="modal-content">
-  <span class="close" on:click={closeFilePreviewModal}>&times;</span>
-  <iframe id="filePreviewFrame" style="width: 100%; height: 500px;"></iframe>
+<!-- Preview Modal -->
+<div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
+  <div class="modal-content relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+    <div class="flex justify-between items-center pb-3">
+      <p class="text-2xl font-bold">File Preview</p>
+      <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" on:click={closePreviewModal}>
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+      </button>
+    </div>
+    <div class="mt-4">
+      <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
+      <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+    </div>
 </div>
 </div>
 
 
-  {:else if moveStage === (stageData[4].visible ? 5 : 4)}
+{:else if moveStage === (stageData[4].visible ? 5 : 4)}
   <!-- Share with Account stage content -->
   <h4 class="text-lg font-bold mb-2">Installation or Service Report</h4>
   <!-- Ongoing Shipments -->
   {#each shipments.filter(s => s.isSaved) as shipment, index}
-    <div class="mb-6 p-4 border rounded-lg relative">
-      <!-- New fields -->
-      <div>
-        <label for="installation-remarks-{index}" class="block text-sm font-medium text-gray-700">Installation remarks:</label>
-        <textarea id="installation-remarks-{index}" bind:value={shipment.installationRemarks} class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" rows="3" disabled={shipment.isDataSaved}></textarea>
-      </div>
-      <div>
-        <label for="installation-report-{index}" class="block text-sm font-medium text-gray-700">Installation report attachment:</label>
-        {#if !shipment.isDataSaved}
-            <input type="file" id="installation-report-{index}" on:change={(e) => handleStage3FileChange(e, 'installation', index)} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="mt-1 block w-full" required>
-          {/if}
-          {#if shipment.installationFile}
-            <div class="mt-2">
-              <span class="text-sm text-gray-600">{shipment.installationFileName || 'File uploaded'}</span>
-            <button 
-              type="button" 
-              on:click={() => previewFile(shipment.installationFile)}
-              class="text-blue-600 hover:text-blue-800 mr-2"
-            >
-              Preview
-            </button>
-            <button 
-              type="button" 
-              on:click={() => downloadFile(shipment.installationFile, shipment.installationFileName)}
-                class="text-green-600 hover:text-green-800 ml-2"
-            >
-              Download
-            </button>
-          </div>
-        {/if}
-      </div>
+  <div class="mb-6 p-4 border rounded-lg relative">
+    <h5 class="text-md font-semibold mb-2">
+      {shipment.activeTab === 'installation' ? 'Installation Report' : 'Service Report'}
+    </h5>
+    <!-- New fields -->
+    <div>
+      <label for="report-remarks-{index}" class="block text-sm font-medium text-gray-700">
+        {shipment.activeTab === 'installation' ? 'Installation' : 'Service'} Remarks:
+      </label>
+      <textarea 
+        id="report-remarks-{index}" 
+        value={shipment.activeTab === 'installation' ? shipment.installationRemarks : shipment.serviceRemarks} 
+        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
+        rows="3" 
+        disabled
+      ></textarea>
+    </div>
 
-          
+    <button 
+      type="button" 
+      on:click={() => previewFile(shipment.activeTab === 'installation' ? shipment.installationFile : shipment.serviceFile)}
+      class="text-blue-600 hover:text-blue-800 ml-2"
+    >
+      Preview
+    </button>
+    <button 
+      type="button" 
+      on:click={() => downloadFile(shipment.activeTab === 'installation' ? shipment.installationFile : shipment.serviceFile, shipment.activeTab === 'installation' ? shipment.installationFileName : shipment.serviceFileName)}
+        class="text-green-600 hover:text-green-800 ml-2"
+    >
+      Download
+    </button>
+  </div>
+{/each}
+
+       {#each shipments.filter(s => !s.isSaved) as shipment, index}   
       <!-- Approval/Rejection toggle buttons -->
-      <div class="flex justify-center space-x-4 mb-4">
+      <div class="flex justify-center space-x-4 mt-4">
         <button
           type="button"
           class="px-3 py-1 {shipment.accountStatus === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200'} rounded"
           on:click={() => {
-            if (shipment.accountStatus === 'rejected') {
-              shipment.rejected = false;
-              shipment.rejectionRemark = '';
+            if (!shipment.isDataSaved) {
+              shipment.accountStatus = 'approved';
+              shipment.accountRemark = '';
             }
-            shipment.accountStatus = 'approved';
-            shipment.accountRemark = '';
           }}
           disabled={shipment.isDataSaved}
         >
@@ -2570,10 +3066,10 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           type="button"
           class="px-3 py-1 {shipment.accountStatus === 'rejected' ? 'bg-red-500 text-white' : 'bg-gray-200'} rounded"
           on:click={() => {
-            shipment.accountStatus = 'rejected';
-            shipment.accountRemark = '';
-            shipment.rejected = true;
-            shipment.rejectionRemark = '';
+            if (!shipment.isDataSaved) {
+              shipment.accountStatus = 'rejected';
+              shipment.accountRemark = '';
+            }
           }}
           disabled={shipment.isDataSaved}
         >
@@ -2581,23 +3077,21 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         </button>
       </div>
 
-      <!-- Remark field -->
-      <div class="mb-2">
-        <label for="shipment-remark-{index}" class="block text-sm font-medium text-gray-700">Remark:</label>
-        <textarea 
-          id="shipment-remark-{index}" 
-          bind:value={shipment.accountRemark} 
-          on:input={() => {
-            if (shipment.accountStatus === 'rejected') {
-              shipment.rejectionRemark = shipment.accountRemark;
-            }
-          }}
+      <!-- Remark input field -->
+      {#if shipment.accountStatus}
+        <div class="mt-4">
+          <label for="account-remark-{index}" class="block text-sm font-medium text-gray-700">
+            {shipment.accountStatus === 'approved' ? 'Approval' : 'Rejection'} Remark:
+          </label>
+          <textarea
+            id="account-remark-{index}"
+            bind:value={shipment.accountRemark}
           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
-          rows="3" 
-          required
+          rows="3"
           disabled={shipment.isDataSaved}
         ></textarea>
       </div>
+      {/if}
 
       <!-- Save/Edit button -->
       <button 
@@ -2609,7 +3103,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             shipment.isEditing = true;
           } else {
             // Validate before saving
-            if (!shipment.accountStatus || !shipment.accountRemark || shipment.accountRemark.trim() === '') {
+            if (!Stage5Data.accStatus || !Stage5Data.accountRemark || Stage5Data.accountRemark.trim() === '') {
               alert("Please fill up the details before saving");
               return;
             }
@@ -2618,12 +3112,12 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             shipment.isEditing = false;
             // Add any additional save logic here
           }
+          shipments = [...shipments];
         }}
         class="absolute down-2 right-2 px-2 py-1 {shipment.isDataSaved ? 'bg-blue-500' : 'bg-green-500'} text-white rounded text-sm"
       >
         {shipment.isDataSaved ? 'Edit' : 'Save'}
       </button>
-    </div>
   {/each}
 
   <h4 class="text-lg font-bold mb-2">Return Pickups Report</h4>
@@ -2636,7 +3130,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         <label for="return-pickup-remark" class="block text-sm font-medium text-gray-700">Return pickup report remarks:</label>
         <textarea 
         id="return-pickup-remark" 
-        bind:value={returnPickup.dcaccountRemark}
+        bind:value={Stage4Data.Remark}
           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
           rows="3" 
           required
@@ -2649,18 +3143,18 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         <input 
           type="file" 
           id="attachment" 
-            on:change={handleReturnPickupFileChange}
+          on:change={handleReturnPickupFileChange}
           class="mt-1 block w-full" 
           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
           required
         >
-        {/if}
-        {#if returnPickup.file}
+      {/if}
+      {#if returnPickup.file}
           <div class="mt-2">
-            <span class="text-sm text-gray-600">{returnPickup.fileName || 'File uploaded'}</span>
+            <span class="text-sm text-gray-600">{Stage4Data.fileName || 'File uploaded'}</span>
             <button 
               type="button" 
-              on:click={() => previewFile(returnPickup.file)}
+              on:click={previewReturnPickupFile}
               class="text-blue-600 hover:text-blue-800 ml-2"
             >
               Preview
@@ -2675,45 +3169,39 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           </div>
         {/if}
       </div>
-    
-      {#if !returnPickup.isSaved}
-        <button 
-          type="button" 
-          on:click={saveReturnPickup}
-          class="mt-4 px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 absolute bottom-2 right-2"
-        >
-          Save
-        </button>
-      {/if}   
       
       <!-- Approval/Rejection toggle buttons -->
       <div class="flex justify-center space-x-4 mb-4">
         <button
           type="button"
           class="px-3 py-1 {returnPickup.accountStatus === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200'} rounded"
-          on:click={() => {
-            if (returnPickup.accountStatus === 'rejected') {
-              returnPickup.rejected = false;
-              returnPickup.rejectionRemark = '';
-            }
-            returnPickup.accountStatus = 'approved';
-            returnPickup.accountRemark = '';
-          }}
-          disabled={returnPickup.isDataSaved}
-        >
+        on:click={() => {
+          if (returnPickup.accountStatus === 'rejected') {
+            returnPickup.rejected = false;
+            returnPickup.rejectionRemark = '';
+          }
+          returnPickup.accountStatus = 'approved';
+          returnPickup.accountRemark = '';
+          returnPickup.approved = true;
+          returnPickup.approvalRemark = '';
+        }}
+        disabled={returnPickup.isDataSaved && !returnPickup.isEditing}
+      >
           Approved
         </button>
         <button
           type="button"
           class="px-3 py-1 {returnPickup.accountStatus === 'rejected' ? 'bg-red-500 text-white' : 'bg-gray-200'} rounded"
-          on:click={() => {
-            returnPickup.accountStatus = 'rejected';
-            returnPickup.accountRemark = '';
-            returnPickup.rejected = true;
-            returnPickup.rejectionRemark = '';
-          }}
-          disabled={returnPickup.isDataSaved}
-        >
+        on:click={() => {
+          returnPickup.accountStatus = 'rejected';
+          returnPickup.accountRemark = '';
+          returnPickup.rejected = true;
+          returnPickup.rejectionRemark = '';
+          returnPickup.approved = false;
+          returnPickup.approvalRemark = '';
+        }}
+        disabled={returnPickup.isDataSaved && !returnPickup.isEditing}
+      >
           Rejected
         </button>
       </div>
@@ -2724,15 +3212,17 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         <textarea 
           id="pickup-remark" 
           bind:value={returnPickup.accountRemark} 
-          on:input={() => {
-            if (returnPickup.accountStatus === 'rejected') {
-              returnPickup.rejectionRemark = returnPickup.accountRemark;
-            }
+        on:input={() => {
+          if (returnPickup.accountStatus === 'rejected') {
+            returnPickup.rejectionRemark = returnPickup.accountRemark;
+          } else if (returnPickup.accountStatus === 'approved') {
+            returnPickup.approvalRemark = returnPickup.accountRemark;
+          }
           }}
           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
           rows="3" 
           required
-          disabled={returnPickup.isDataSaved}
+          disabled={returnPickup.isDataSaved && !returnPickup.isEditing}
         ></textarea>        
       </div>
 
@@ -2746,7 +3236,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             returnPickup.isEditing = true;
           } else {
             // Validate before saving
-            if (!returnPickup.accountStatus || !returnPickup.accountRemark || returnPickup.accountRemark.trim() === '') {
+            if (!Stage5Data.retaccStatus || !Stage5Data.retaccountRemark || Stage5Data.retaccountRemark.trim() === '') {
               alert("Please fill up the details before saving");
               return;
             }
@@ -2760,6 +3250,21 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         >
           {returnPickup.isDataSaved ? 'Edit' : 'Save'}
       </button>
+    </div>
+
+    <div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
+    <div class="modal-content relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+      <div class="flex justify-between items-center pb-3">
+        <p class="text-2xl font-bold">File Preview</p>
+        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" on:click={closePreviewModal}>
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+        </button>
+      </div>
+      <div class="mt-4">
+        <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
+        <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+      </div>
+    </div>
     </div>
   {/if}
 {/if}
@@ -2833,7 +3338,6 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 
   </form>
   </div>
-</div>
 </div>
 
 <style>
