@@ -1,4 +1,3 @@
-//update-current-stage/+server.ts
 import { json } from '@sveltejs/kit';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient({
@@ -17,13 +16,6 @@ export async function POST({ request }) {
             where: { SONumber: SONumber },
             data: { currentStage: currentStage }
         });
-        
-      await prisma.stageHistory.create({
-        data: {
-          SONumber,
-          stage: currentStage
-        }
-      });
 
         return json({ success: true, data: updatedStage0 });
     } catch (error) {

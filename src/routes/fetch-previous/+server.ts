@@ -1,4 +1,3 @@
-//fetch-previous/+server.ts
 import { json } from '@sveltejs/kit';
 import { PrismaClient } from '@prisma/client';
 import type { SalesOrder } from '$lib/types';
@@ -10,6 +9,7 @@ const prisma = new PrismaClient({
     },
   },
 });
+
 
 export async function POST({ request }) {
   const { currentStage, salesOrder } = await request.json();
@@ -28,10 +28,9 @@ async function fetchPreviousStagesData(currentStage: number, salesOrder: SalesOr
   let SONo = salesOrder.salesorder_number;
 
   for (let stage = 0; stage < currentStage; stage++) {
-    let stage0Data;
     switch (stage) {
       case 0:
-        stage0Data = await prisma.stage0.findFirst({
+        const stage0Data = await prisma.stage0.findFirst({
           where: { SONumber: SONo },
           orderBy: { createdAt: 'desc' }
         });
