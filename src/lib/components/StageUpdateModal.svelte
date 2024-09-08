@@ -1992,7 +1992,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
     <h4 class="text-lg font-bold mb-2 inline-block mr-2">Current Unsaved Total:</h4>
     <p class="inline-block">{formatCurrency(dcOrderTotal.subtotal)}</p>
   </div> -->
-        {#each dcBoxes as dc, index}
+      {#each dcBoxes as dc, index}
               <div class="bg-white bg-opacity-50 p-6 rounded-lg shadow-md mb-8 relative form-card">
                 {#if !dc.isSaved && index !== 0}
                   <button
@@ -2056,7 +2056,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 >
                   Show Details
                 </button>
-              {/if}
+                {/if}
                 </div>
               </div>
 

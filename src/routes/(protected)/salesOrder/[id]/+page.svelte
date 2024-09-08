@@ -4,7 +4,7 @@
     import type { PageData } from './$types';
     import type { SalesOrder, ActivityLog } from '$lib/types';
     import '$lib/styles/app.css';
-    import { onMount } from 'svelte';
+    import { onMount, createEventDispatcher } from 'svelte';
     import { fade } from 'svelte/transition';
     import StageUpdateModal from '$lib/components/StageUpdateModal.svelte';
     import { writable } from 'svelte/store';
@@ -13,10 +13,36 @@
     import { fly } from 'svelte/transition';
     import { Clock, User, Activity } from 'svelte-lucide';
     import { invalidate } from '$app/navigation';
+	import StageModalRef from '$lib/components/StageModalRef.svelte';
 
     export let data: PageData;
 
     let expandedLog: string | null = null;
+
+    const dispatch = createEventDispatcher();
+
+    function handleClose() {
+    dispatch('close');
+  }
+
+  function handleClickOutside(event:any) {
+    if (event.target.classList.contains('modal-overlay')) {
+      handleClose();
+    }
+  }
+
+  function handleKeydown(event: any) {
+    if (event.key === 'Escape') {
+      handleClose();
+    }
+  }
+
+  onMount(() => {
+    document.addEventListener('keydown', handleKeydown);
+    return () => {
+      document.removeEventListener('keydown', handleKeydown);
+    };
+  });
 
   function toggleLogExpansion(logId: string) {
     expandedLog = expandedLog === logId ? null : logId;
@@ -217,18 +243,6 @@ let dropdownRef: HTMLDivElement;
 
 function closeDropdown() {
     showMenuDropdown = false;
-}
-
-function handleClickOutside(event: MouseEvent) {
-    if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
-        closeDropdown();
-    }
-}
-
-function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-        closeDropdown();
-    }
 }
 
 onMount(() => {
@@ -442,11 +456,32 @@ onMount(() => {
 </div>
        
 
-{#if showStageUpdateModal}
-  <StageUpdateModal
+  <!-- <StageUpdateModal
     username={data.user.name}
     userRole={data.user.role}
     currentStage={currentStage?.currentStage ?? null}
+    data={{
+      user: {
+		  name: data.user.name,
+		  role: data.user.role,
+		  email: data.user.email,
+		  id: data.user.id,
+		  createdAt: data.user.createdAt,
+		  phoneNo: data.user.phoneNo,
+		  image: data.user.image,
+		  status: data.user.status,
+		  verificationToken: ''
+	  }
+    }}
+    salesOrder={salesOrder}
+    Stage0Data={Stage0Data}
+    Stage3Data={Stage3Data}
+    Stage4Data={Stage4Data}
+    Stage5Data={Stage5Data}
+    on:close={toggleStageUpdateModal}
+  /> -->
+{#if showStageUpdateModal}
+  <StageModalRef 
     data={{
       user: {
         name: data.user.name,
@@ -456,13 +491,11 @@ onMount(() => {
         createdAt: data.user.createdAt,
         phoneNo: data.user.phoneNo,
         image: data.user.image,
-        status: data.user.status
+        status: data.user.status,
+        verificationToken: ''
       }
     }}
     salesOrder={salesOrder}
-    Stage0Data={Stage0Data}
-    Stage3Data={Stage3Data}
-    Stage4Data={Stage4Data}
-    on:close={toggleStageUpdateModal}
+    on:close={() => showStageUpdateModal = false}
   />
 {/if}

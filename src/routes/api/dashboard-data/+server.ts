@@ -5,7 +5,7 @@ import { db } from '$lib/database';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { start, end } = await request.json();
+    const { start, end, orderStatus } = await request.json();
 
     type DateFilter = {
       createdAt?: {
@@ -22,6 +22,8 @@ export const POST: RequestHandler = async ({ request }) => {
       };
     }
 
+    const statusFilter = orderStatus === 'all' ? {} : { orderStatus };
+
     const [
       totalOrders,
       totalRevenue,
@@ -35,10 +37,10 @@ export const POST: RequestHandler = async ({ request }) => {
       serviceDetails,
       agingData
     ] = await Promise.all([
-      db.stage0.count({ where: dateFilter }),
+      db.stage0.count({ where: { ...dateFilter, ...statusFilter } }),
       db.stage0.aggregate({
         _sum: { Total: true },
-        where: dateFilter
+        where: { ...dateFilter, ...statusFilter }
       }),
       db.installation.count({
         where: {

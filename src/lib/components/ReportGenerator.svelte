@@ -29,66 +29,76 @@ function generateExcelReport() {
         ['Active Installations', activeInstallations],
         ['Active Services', activeServices],
         ['Average Order Value', averageOrderValue !== undefined ? `₹${averageOrderValue.toLocaleString()}` : 'N/A'],
-        ['Conversion Rate', `${(conversionRate * 100).toFixed(2)}%`],
+        ['Conversion Rate', `${((conversionRate || 0) * 100).toFixed(2)}%`],
     ];
     const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
     // Order Categories sheet
-    const categoriesData = [
-        ['Order Categories'],
-        ['Category', 'Count', 'Revenue'],
-        ...orderCategories.map(c => [c.category, c.count, c.revenue !== undefined ? `₹${c.revenue.toLocaleString()}` : 'N/A'])
-    ];
-    const categoriesWs = XLSX.utils.aoa_to_sheet(categoriesData);
-    XLSX.utils.book_append_sheet(wb, categoriesWs, 'Order Categories');
+    if (orderCategories && orderCategories.length > 0) {
+        const categoriesData = [
+            ['Order Categories'],
+            ['Category', 'Count', 'Revenue'],
+            ...orderCategories.map(c => [c.category, c.count, c.revenue !== undefined ? `₹${c.revenue.toLocaleString()}` : 'N/A'])
+        ];
+        const categoriesWs = XLSX.utils.aoa_to_sheet(categoriesData);
+        XLSX.utils.book_append_sheet(wb, categoriesWs, 'Order Categories');
+    }
 
     // Orders by Stage sheet
-    const stageData = [
-        ['Orders by Stage'],
-        ['Stage', 'Count', 'Description'],
-        ...ordersByStage.map(s => [getStageTitle(s.stage), s.count, getStageDescription(s.stage)])
-    ];
-    const stageWs = XLSX.utils.aoa_to_sheet(stageData);
-    XLSX.utils.book_append_sheet(wb, stageWs, 'Orders by Stage');
+    if (ordersByStage && ordersByStage.length > 0) {
+        const stageData = [
+            ['Orders by Stage'],
+            ['Stage', 'Count', 'Description'],
+            ...ordersByStage.map(s => [getStageTitle(s.stage), s.count, getStageDescription(s.stage)])
+        ];
+        const stageWs = XLSX.utils.aoa_to_sheet(stageData);
+        XLSX.utils.book_append_sheet(wb, stageWs, 'Orders by Stage');
+    }
 
     // Recent Orders sheet
-    const recentOrdersData = [
-        ['Recent Orders'],
-        ['SO Number', 'Client Name', 'Total', 'Current Stage', 'Created At'],
-        ...recentOrders.map(o => [
-            o.SONumber,
-            o.clientName,
-            o.Total !== undefined ? `₹${o.Total.toLocaleString()}` : 'N/A',
-            getStageTitle(o.currentStage),
-            o.createdAt ? new Date(o.createdAt).toLocaleString() : 'N/A'
-        ])
-    ];
-    const recentOrdersWs = XLSX.utils.aoa_to_sheet(recentOrdersData);
-    XLSX.utils.book_append_sheet(wb, recentOrdersWs, 'Recent Orders');
+    if (recentOrders && recentOrders.length > 0) {
+        const recentOrdersData = [
+            ['Recent Orders'],
+            ['SO Number', 'Client Name', 'Total', 'Current Stage', 'Created At'],
+            ...recentOrders.map(o => [
+                o.SONumber,
+                o.clientName,
+                o.Total !== undefined ? `₹${o.Total.toLocaleString()}` : 'N/A',
+                getStageTitle(o.currentStage),
+                o.createdAt ? new Date(o.createdAt).toLocaleString() : 'N/A'
+            ])
+        ];
+        const recentOrdersWs = XLSX.utils.aoa_to_sheet(recentOrdersData);
+        XLSX.utils.book_append_sheet(wb, recentOrdersWs, 'Recent Orders');
+    }
 
     // Top Customers sheet
-    const topCustomersData = [
-        ['Top Customers'],
-        ['Customer', 'Total Orders', 'Total Revenue'],
-        ...topCustomers.map(c => [c.name, c.totalOrders, c.totalRevenue !== undefined ? `₹${c.totalRevenue.toLocaleString()}` : 'N/A'])
-    ];
-    const topCustomersWs = XLSX.utils.aoa_to_sheet(topCustomersData);
-    XLSX.utils.book_append_sheet(wb, topCustomersWs, 'Top Customers');
+    if (topCustomers && topCustomers.length > 0) {
+        const topCustomersData = [
+            ['Top Customers'],
+            ['Customer', 'Total Orders', 'Total Revenue'],
+            ...topCustomers.map(c => [c.name, c.totalOrders, c.totalRevenue !== undefined ? `₹${c.totalRevenue.toLocaleString()}` : 'N/A'])
+        ];
+        const topCustomersWs = XLSX.utils.aoa_to_sheet(topCustomersData);
+        XLSX.utils.book_append_sheet(wb, topCustomersWs, 'Top Customers');
+    }
 
     // Orders by Month sheet
-    const ordersByMonthData = [
-        ['Orders by Month'],
-        ['Month', 'Year', 'Order Count', 'Revenue'],
-        ...ordersByMonth.map(o => [
-            getMonthName(o.month),
-            o.year,
-            o.count,
-            o.revenue !== undefined ? `₹${o.revenue.toLocaleString()}` : 'N/A'
-        ])
-    ];
-    const ordersByMonthWs = XLSX.utils.aoa_to_sheet(ordersByMonthData);
-    XLSX.utils.book_append_sheet(wb, ordersByMonthWs, 'Orders by Month');
+    if (ordersByMonth && ordersByMonth.length > 0) {
+        const ordersByMonthData = [
+            ['Orders by Month'],
+            ['Month', 'Year', 'Order Count', 'Revenue'],
+            ...ordersByMonth.map(o => [
+                getMonthName(o.month),
+                o.year,
+                o.count,
+                o.revenue !== undefined ? `₹${o.revenue.toLocaleString()}` : 'N/A'
+            ])
+        ];
+        const ordersByMonthWs = XLSX.utils.aoa_to_sheet(ordersByMonthData);
+        XLSX.utils.book_append_sheet(wb, ordersByMonthWs, 'Orders by Month');
+    }
 
     // Generate Excel file
     XLSX.writeFile(wb, 'comprehensive_dashboard_report.xlsx');
@@ -121,7 +131,7 @@ function getStageDescription(stage: number): string {
 function getMonthName(month: number): string {
     const monthNames = ["January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"];
-    return monthNames[month - 1];
+    return monthNames[month - 1] || "Unknown Month";
 }
 </script>
 

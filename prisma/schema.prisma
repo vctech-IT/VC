@@ -25,8 +25,6 @@ model User {
   otp String?
   otpExpires DateTime?
   isVerified Boolean @default(false)
-  resetToken String?
-  resetTokenExpires DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -52,6 +50,7 @@ model Stage0 {
   SOCategory   String     
   PMName       String
   clientExpectedDate    DateTime
+  orderStatus  String 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   Stage1       Stage1[]
@@ -194,7 +193,7 @@ model ActivityLog {
 model StageHistory {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   SONumber  String
-  stage     Int
+  stage     Int 
   timestamp DateTime @default(now())
   SO        Stage0   @relation(fields: [SONumber], references: [SONumber])
 
