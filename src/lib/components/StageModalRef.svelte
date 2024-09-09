@@ -677,6 +677,11 @@ function handleSaveEdit(index: number) {
   if (notAvailableItems.length > 0) {
     goToNextStage();
   }
+  if (notRequiredItems.length > 0){
+       stageData[currentStage].completed = true;
+  // Automatically move to the next stage
+  goToNextStage();
+  }
 }
 
 function allLineItemsFrozen() {
@@ -848,7 +853,7 @@ let customFileName = '';
   let currentDCIndex: number = 0;
 
   // Function to handle file change
-  function handleFileChange(event: Event, dcIndex: number) {
+  function handleFileChange(event: Event, dcIndex: any) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     
