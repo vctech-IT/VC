@@ -75,7 +75,7 @@ export const POST: RequestHandler = async ({ request }) => {
       db.stage0.groupBy({
         by: ['currentStage'],
         _count: true,
-        where: dateFilter
+        where: {...dateFilter, ...statusFilter }
       }),
       db.stage0.groupBy({
         by: ['clientName'],

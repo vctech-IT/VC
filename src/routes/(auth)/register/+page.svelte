@@ -1,3 +1,4 @@
+<!--register/+page.svelte-->
 <script lang="ts">
   import { onMount } from 'svelte';
   import Swiper from 'swiper';

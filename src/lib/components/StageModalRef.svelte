@@ -15,6 +15,64 @@
   export let salesOrder: SalesOrder;
   const dispatch = createEventDispatcher();
 
+  type Role = 'ADMIN' | 'USER' | 'ACCOUNTANT' | 'MATERIALPROCURE' | 'WAREHOUSE' | 'OPERATION' | 'MANAGER';
+
+  interface StageData {
+  title: string;
+  completed: boolean;
+  visible: boolean;
+  editableRoles: Role[];
+}
+
+    let isEditing = false;
+
+  // Define stage data with role-based edit permissions
+  let stageData: StageData[] = [
+  { 
+    title: 'Stage 0. Site Not Ready', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+  },
+  { 
+    title: 'Stage 1. Logistics', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'WAREHOUSE']
+  },
+  { 
+    title: 'Stage 2. Material to Procure', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'MATERIALPROCURE']
+  },
+  { 
+    title: 'Stage 3. On Going', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
+  },
+  { 
+    title: 'Stage 4. Return Pickup', 
+    completed: false, 
+    visible: false,
+    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
+  },
+  { 
+    title: 'Stage 5. Share with Account', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+  }
+];
+
+  // Function to check if the current user can edit a specific stage
+  function canEditStage(userRole: Role, stage: StageData): boolean {
+    return stage.editableRoles.includes(userRole) || userRole === 'ADMIN';
+  }
+
+   $: isEditing = canEditStage(data.user.role as Role, stageData[currentStage]);
+
   // Variables for dropped and monitoring states
   let isDropped = false;
   let isMonitoring = false;
@@ -131,19 +189,10 @@ onMount(() => {
 
   // Stage and form variables
   let currentStage = 0;
-  let stageData = [
-  { title: 'Stage 0. Site Not Ready', completed: false, visible: true },
-  { title: 'Stage 1. Logistics', completed: false, visible: true },
-  { title: 'Stage 2. Material to Procure', completed: false, visible: true },
-  { title: 'Stage 3. On Going', completed: false, visible: true },
-  { title: 'Stage 4. Return Pickup', completed: false, visible: false },
-  { title: 'Stage 5. Share with Account', completed: false, visible: true }
-];
 
   let soCategory = '';
   let projectManagerName = '';
   let clientExpectedDate: string = '';
-  let isEditing = true;
   let partialDelivery = false;
   let canAccessNextStage = false;
   let allItemsSaved = false;
@@ -1885,8 +1934,8 @@ $: visibleStages = (isDropped || isMonitoring)
     </div>
     {/if}
 
-    <form on:submit={handleSubmit}>
-<div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 bg-white rounded-lg shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl border border-gray-200">
+<form on:submit={handleSubmit}>
+  <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 bg-white rounded-lg shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl border border-gray-200">
   <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2 transition-colors duration-200">{stageData[currentStage].title}</h3>
 
   {#if currentStage === 0}
@@ -2052,7 +2101,7 @@ $: visibleStages = (isDropped || isMonitoring)
               <select 
                 bind:value={lineItemsWithStatus[index].status} 
                 class="w-max px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" 
-                disabled={frozenLineItems[item.id]}
+                disabled={frozenLineItems[item.id] || !isEditing}
               >
                 <option value="">Select status</option>
                 <option value="available">Available</option>
@@ -2176,7 +2225,7 @@ $: visibleStages = (isDropped || isMonitoring)
             placeholder={dc.billType === 'E-way' ? "Enter E-way number" : "Enter DC number"}
             class="block w-full pl-3 pr-10 py-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             class:opacity-50={dc.isSaved}
-            disabled={dc.isSaved}
+            disabled={dc.isSaved || !isEditing}
             on:focus={handleFocus}
             on:blur={handleBlur}
             on:keydown={handleKeyDown}
@@ -2299,17 +2348,17 @@ $: visibleStages = (isDropped || isMonitoring)
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
     <div>
       <label for="tracking-no-{index}" class="block text-sm font-medium text-gray-700 mb-1">POD Number:</label>
-      <input type="text" id="tracking-no-{index}" bind:value={dc.trackingNo} class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={dc.isSaved}>
+      <input type="text" id="tracking-no-{index}" bind:value={dc.trackingNo} class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={dc.isSaved || !isEditing}>
     </div>
 
     <div>
       <label for="dispatched-date-{index}" class="block text-sm font-medium text-gray-700 mb-1">Dispatched Date:</label>
-      <input type="date" id="dispatched-date-{index}" bind:value={dc.dispatchedDate} class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" max={new Date().toISOString().split('T')[0]} required disabled={dc.isSaved}>
+      <input type="date" id="dispatched-date-{index}" bind:value={dc.dispatchedDate} class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" max={new Date().toISOString().split('T')[0]} required disabled={dc.isSaved || !isEditing}>
     </div>
 
     <div>
       <label for="delivery-date-{index}" class="block text-sm font-medium text-gray-700 mb-1">Delivery Date:</label>
-      <input type="date" id="delivery-date-{index}" bind:value={dc.deliveryDate} class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" min={dc.dispatchedDate} required disabled={dc.isSaved}>
+      <input type="date" id="delivery-date-{index}" bind:value={dc.deliveryDate} class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" min={dc.dispatchedDate} required disabled={dc.isSaved || !isEditing}>
     </div>
 
     <div>
@@ -2523,7 +2572,7 @@ $: visibleStages = (isDropped || isMonitoring)
                     type="checkbox" 
                     bind:checked={item.isAvailable} 
                     on:change={() => handleAvailabilityChange(item.id, 'available')}
-                    disabled={item.isAvailabilityFrozen || item.needToPurchaseLocally}
+                    disabled={item.isAvailabilityFrozen || item.needToPurchaseLocally|| !isEditing}
                     class="form-checkbox h-5 w-5 text-blue-600 transition duration-150 ease-in-out"
                   >
                   <span class="ml-2">{item.isAvailable ? 'Yes' : 'No'}</span>
@@ -2535,7 +2584,7 @@ $: visibleStages = (isDropped || isMonitoring)
                     type="checkbox" 
                     bind:checked={item.needToPurchaseLocally} 
                     on:change={() => handleAvailabilityChange(item.id, 'need_to_purchase')}
-                    disabled={item.isAvailabilityFrozen || item.isAvailable}
+                    disabled={item.isAvailabilityFrozen || item.isAvailable|| !isEditing}
                     class="form-checkbox h-5 w-5 text-indigo-600 transition duration-150 ease-in-out"
                   >
                   <span class="ml-2">{item.needToPurchaseLocally ? 'Yes' : 'No'}</span>
@@ -2725,7 +2774,7 @@ $: visibleStages = (isDropped || isMonitoring)
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="flex flex-col">
             <label for="engineer-name-{index}" class="text-sm font-semibold text-gray-700">Engineer Name:</label>
-            <input type="text" id="engineer-name-{index}" bind:value={shipment.engineerName} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing}>
+            <input type="text" id="engineer-name-{index}" bind:value={shipment.engineerName} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing || !isEditing}>
           </div>
           <div class="flex flex-col">
             <label for="schedule-date-{index}" class="text-sm font-semibold text-gray-700">Installation Completion Date:</label>
@@ -2736,7 +2785,7 @@ $: visibleStages = (isDropped || isMonitoring)
               min={new Date().toISOString().split('T')[0]} 
               class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" 
               required 
-              disabled={shipment.isSaved && !shipment.isEditing}
+              disabled={shipment.isSaved && !shipment.isEditing || !isEditing}
             >
           </div>
         </div>
@@ -2752,21 +2801,21 @@ $: visibleStages = (isDropped || isMonitoring)
               pattern="[0-9]{10}"
               maxlength="10"
               required
-              disabled={shipment.isSaved && !shipment.isEditing}
+              disabled={shipment.isSaved && !shipment.isEditing || !isEditing}
             >
           </div>
           <div class="flex flex-col">
             <label for="vendor-name-{index}" class="text-sm font-semibold text-gray-700">Vendor Name:</label>
-            <input type="text" id="vendor-name-{index}" bind:value={shipment.vendorName} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing}>
+            <input type="text" id="vendor-name-{index}" bind:value={shipment.vendorName} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing || !isEditing}>
           </div>
         </div>
         <div class="flex flex-col">
           <label for="installation-remarks-{index}" class="text-sm font-semibold text-gray-700">Installation Remarks:</label>
-          <textarea id="installation-remarks-{index}" bind:value={shipment.installationRemarks} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" rows="4" disabled={shipment.isSaved && !shipment.isEditing}></textarea>
+          <textarea id="installation-remarks-{index}" bind:value={shipment.installationRemarks} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" rows="4" disabled={shipment.isSaved && !shipment.isEditing || !isEditing}></textarea>
         </div>
         <div class="flex flex-col">
           <label for="installation-report-{index}" class="text-sm font-semibold text-gray-700">Installation Report Attachment:</label>
-          {#if !shipment.isSaved || shipment.isEditing}
+          {#if !shipment.isSaved || shipment.isEditing || !isEditing}
             <input type="file" id="installation-report-{index}" on:change={(e) => handleStage3FileChange(e, 'installation', index)} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
           {/if}
           {#if shipment.installationFile}
@@ -2796,7 +2845,7 @@ $: visibleStages = (isDropped || isMonitoring)
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="flex flex-col">
             <label for="service-engineer-name-{index}" class="text-sm font-semibold text-gray-700">Engineer Name:</label>
-            <input type="text" id="service-engineer-name-{index}" bind:value={shipment.serviceEngineerName} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing}>
+            <input type="text" id="service-engineer-name-{index}" bind:value={shipment.serviceEngineerName} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing || !isEditing}>
           </div>
           <div class="flex flex-col">
             <label for="service-schedule-date-{index}" class="text-sm font-semibold text-gray-700">Service Completion Date:</label>
@@ -2807,7 +2856,7 @@ $: visibleStages = (isDropped || isMonitoring)
               min={new Date().toISOString().split('T')[0]} 
               class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" 
               required 
-              disabled={shipment.isSaved && !shipment.isEditing}
+              disabled={shipment.isSaved && !shipment.isEditing || !isEditing}
             >
           </div>
         </div>
@@ -2823,17 +2872,17 @@ $: visibleStages = (isDropped || isMonitoring)
               pattern="[0-9]{10}"
               maxlength="10"
               required
-              disabled={shipment.isSaved && !shipment.isEditing}
+              disabled={shipment.isSaved && !shipment.isEditing || !isEditing}
             >
           </div>
           <div class="flex flex-col">
             <label for="service-vendor-name-{index}" class="text-sm font-semibold text-gray-700">Vendor Name:</label>
-            <input type="text" id="service-vendor-name-{index}" bind:value={shipment.serviceVendorName} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing}>
+            <input type="text" id="service-vendor-name-{index}" bind:value={shipment.serviceVendorName} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing || !isEditing}>
           </div>
         </div>
         <div class="flex flex-col">
           <label for="service-remarks-{index}" class="text-sm font-semibold text-gray-700">Service Remarks:</label>
-          <textarea id="service-remarks-{index}" bind:value={shipment.serviceRemarks} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" rows="4" disabled={shipment.isSaved && !shipment.isEditing}></textarea>
+          <textarea id="service-remarks-{index}" bind:value={shipment.serviceRemarks} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" rows="4" disabled={shipment.isSaved && !shipment.isEditing || !isEditing}></textarea>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="flex flex-col">
@@ -2863,7 +2912,7 @@ $: visibleStages = (isDropped || isMonitoring)
           </div>
           <div class="flex flex-col">
             <label for="service-ticket-id-{index}" class="text-sm font-semibold text-gray-700">Service Ticket Id:</label>
-            <input type="text" id="service-ticket-id-{index}" bind:value={shipment.serviceTicketId} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing}>
+            <input type="text" id="service-ticket-id-{index}" bind:value={shipment.serviceTicketId} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" required disabled={shipment.isSaved && !shipment.isEditing || !isEditing}>
           </div>
         </div>
       </div>
@@ -2948,7 +2997,7 @@ $: visibleStages = (isDropped || isMonitoring)
             bind:value={returnPickupName} 
             class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-12 px-4 text-lg" 
             required
-            disabled={returnPickupDetailsSaved}
+            disabled={returnPickupDetailsSaved || !isEditing}
           >
         </div>
         <div class="flex-1">
@@ -2962,7 +3011,7 @@ $: visibleStages = (isDropped || isMonitoring)
             pattern="[0-9]{10}"
             maxlength="10"
             required
-            disabled={returnPickupDetailsSaved}
+            disabled={returnPickupDetailsSaved || !isEditing}
           >
         </div>
       </div>
@@ -2974,7 +3023,7 @@ $: visibleStages = (isDropped || isMonitoring)
           class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-24 px-4 text-lg" 
           rows="3" 
           required
-          disabled={returnPickupDetailsSaved}
+          disabled={returnPickupDetailsSaved || !isEditing}
         ></textarea>
       </div>
       
@@ -3016,7 +3065,7 @@ $: visibleStages = (isDropped || isMonitoring)
                   <input 
                     type="checkbox" 
                     bind:checked={item.returnPickup}
-                    disabled={returnPickupDetailsSaved}
+                    disabled={returnPickupDetailsSaved || !isEditing}
                   >
                 </td>
               </tr>
@@ -3112,7 +3161,7 @@ $: visibleStages = (isDropped || isMonitoring)
             bind:value={returnPickup.name} 
             class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
             required
-            disabled={returnPickup.isSaved}
+            disabled={returnPickup.isSaved || !isEditing}
           >
         </div>
 
@@ -3124,10 +3173,9 @@ $: visibleStages = (isDropped || isMonitoring)
             bind:value={returnPickup.mobile} 
             on:input={handleReturnPickupMobileInput}
             class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
-            pattern="[0-9]{10}"
             maxlength="10"
             required
-            disabled={returnPickup.isSaved}
+            disabled={returnPickup.isSaved || !isEditing}
           >
         </div>
       </div>
@@ -3141,7 +3189,7 @@ $: visibleStages = (isDropped || isMonitoring)
           class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
           rows="5"
           required
-          disabled={returnPickup.isSaved}
+          disabled={returnPickup.isSaved || !isEditing}
         ></textarea>
       </div>
 
@@ -3171,55 +3219,133 @@ $: visibleStages = (isDropped || isMonitoring)
       </div>
     </div>
 
+    {#each dcBoxes as dc, index}
+    <div 
+  class="bg-slate-200 p-6 mt-4 rounded-lg shadow-md mb-8 transition-all duration-300 ease-in-out hover:shadow-xl focus-within:shadow-xl focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500"
+  role="group"
+  aria-labelledby="dc-details-title-{index}"
+  on:mouseenter={() => isHovered = true}
+  on:mouseleave={() => isHovered = false}
+>
+  <h4 id="dc-details-title-{index}" class="text-xl font-bold mb-6 text-gray-800 flex items-center">
+    <span class="mr-2">{dc.billType === 'E-way' ? 'E-way Bill' : 'DC'} Details</span>
+    {#if isHovered}
+      <span class="text-sm font-normal text-gray-500" transition:fade>#{index + 1}</span>
+    {/if}
+  </h4>
+  
+  <div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+      <div class="flex-1">
+        <label for="dc-number-{index}" class="block text-sm font-medium text-gray-700 mb-1">
+          {dc.billType === 'E-way' ? 'E-way Number:' : 'DC Number:'}
+        </label>
+        <div class="relative">
+          <input
+            type="text"
+            id="dc-number-{index}"
+            bind:value={dc.customName}
+            bind:this={inputRef}
+            placeholder={dc.billType === 'E-way' ? "Enter E-way number" : "Enter DC number"}
+            class="block w-full pl-3 pr-10 py-2 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            class:opacity-50={dc.isSaved}
+            disabled={dc.isSaved || !isEditing}
+            on:focus={handleFocus}
+            on:blur={handleBlur}
+            on:keydown={handleKeyDown}
+            aria-describedby="dc-status-{index}"
+          />
+          {#if dc.isSaved}
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <Check class="h-5 w-5 text-green-400" aria-hidden="true" />
+            </div>
+          {/if}
+        </div>
+      </div>
+      
+      <div class="flex-1">
+        <label for="dc-status-{index}" class="block text-sm font-medium text-gray-700 mb-1">Status:</label>
+        <div class="relative">
+          <input
+            type="text"
+            id="dc-status-{index}"
+            bind:value={dc.status}
+            class="block w-full pl-3 pr-10 py-2 border-gray-300 rounded-md shadow-sm bg-gray-50"
+            disabled
+            aria-live="polite"
+          />
+          {#if dc.validatedData}
+            <button
+              class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 transition-colors duration-200"
+              on:click={() => showDCDetails(index)}
+              aria-label="Show details"
+            >
+              <Info size="20" aria-hidden="true" />
+            </button>
+          {/if}
+        </div>
+      </div>
+    </div>
+    
+    <div class="flex justify-end">
+      <button
+        class="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 ease-in-out transform hover:scale-105"
+        on:click={() => validateDC(index)}
+        disabled={dc.isSaved}
+        aria-label={dc.isSaved ? "Already validated" : "Validate"}
+      >
+        Validate
+      </button>
+    </div>
+  </div>
+</div>
+
+{#if showDetailsModal && selectedDC}
+  <div class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="bg-white p-6 rounded-xl max-w-lg w-full shadow-2xl transform transition-all duration-300 ease-out scale-95 hover:scale-100">
+      <h2 class="text-2xl font-bold mb-6 text-gray-800">DC Details</h2>
+      <div class="space-y-4 mb-6">
+        <p class="flex justify-between">
+          <span class="font-semibold text-gray-600">DC Number:</span>
+          <span class="text-gray-800">{selectedDC.validatedData.deliverychallan_number}</span>
+        </p>
+        <p class="flex justify-between">
+          <span class="font-semibold text-gray-600">Customer Name:</span>
+          <span class="text-gray-800">{selectedDC.validatedData.customer_name}</span>
+        </p>
+        <p class="flex justify-between">
+          <span class="font-semibold text-gray-600">Date:</span>
+          <span class="text-gray-800">{selectedDC.validatedData.date}</span>
+        </p>
+        <p class="flex justify-between">
+          <span class="font-semibold text-gray-600">Total:</span>
+          <span class="text-gray-800">₹{selectedDC.validatedData.total}</span>
+        </p>
+        <p class="flex justify-between items-center">
+          <span class="font-semibold text-gray-600">Status:</span>
+          <span class="px-2 py-1 rounded-full text-sm font-medium 
+            {selectedDC.validatedData.status === 'Completed' ? 'bg-green-100 text-green-800' : 
+             selectedDC.validatedData.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
+             'bg-red-100 text-red-800'}">
+            {selectedDC.validatedData.status}
+          </span>
+        </p>
+      </div>
+      <button
+        class="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+        on:click={closeDetailsModal}
+      >
+        Close
+      </button>
+    </div>
+  </div>
+{/if}
+ {/each}
+
         <!-- Additional fields -->
 <div class="space-y-8 pt-6">
   <!-- DC Number, Courier Tracking No., and DC Amount Section -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
-    <div class="space-y-4">
-      <div>
-        <label for="dc-number" class="block text-sm font-semibold text-gray-800">
-          DC Number
-        </label>
-        <div class="mt-1 relative rounded-md shadow-sm">
-          <input
-            type="text"
-            id="dc-number"
-            bind:value={returnPickup.dcNumber}
-            class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500"
-            required
-            disabled={returnPickup.isSaved}
-          />
-          <button
-            on:click={validationDC}
-            disabled={isValidating || returnPickup.isSaved}
-            class="absolute inset-y-0 right-0 pr-3 flex items-center"
-          >
-            {isValidating ? 'Validating...' : 'Validate'}
-          </button>
-        </div>
-      </div>
-
-      {#if validationStatus === 'success'}
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4" role="alert">
-          <p class="font-bold">Success</p>
-          <p>DC Number validated successfully. Status: {returnPickup.status}</p>
-        </div>
-      {/if}
-
-      {#if validationStatus === 'error'}
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
-          <p class="font-bold">Error</p>
-          <p>An error occurred while validating the DC number.</p>
-        </div>
-      {/if}
-
-      {#if validationStatus === 'notFound'}
-        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
-          <p class="font-bold">Not Found</p>
-          <p>No matching DC found for the given number.</p>
-        </div>
-      {/if}
-    </div>
     <div>
       <label for="tracking-no" class="block text-sm font-semibold text-gray-800">Courier's Tracking No.</label>
       <input 
@@ -3228,7 +3354,7 @@ $: visibleStages = (isDropped || isMonitoring)
         bind:value={returnPickup.trackingNo} 
         class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
         required
-        disabled={returnPickup.isSaved}
+        disabled={returnPickup.isSaved || !isEditing}
       >
     </div>
 
@@ -3241,7 +3367,7 @@ $: visibleStages = (isDropped || isMonitoring)
         on:input={formatAmountreturn}
         class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
         required
-        disabled={returnPickup.isSaved}
+        disabled={returnPickup.isSaved || !isEditing}
       >
     </div>
   </div>
@@ -3258,7 +3384,7 @@ $: visibleStages = (isDropped || isMonitoring)
         max={getCurrentDate()}
         class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
         required
-        disabled={returnPickup.isSaved}
+        disabled={returnPickup.isSaved || !isEditing}
       >
     </div>
 
@@ -3271,7 +3397,7 @@ $: visibleStages = (isDropped || isMonitoring)
         min={returnPickup.dispatchedDate}
         class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
         required
-        disabled={returnPickup.isSaved}
+        disabled={returnPickup.isSaved || !isEditing}
       >
     </div>
   </div>
@@ -3285,7 +3411,7 @@ $: visibleStages = (isDropped || isMonitoring)
       class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
       rows="4"
       required
-      disabled={returnPickup.isSaved}
+      disabled={returnPickup.isSaved || !isEditing}
     ></textarea>
   </div>
 </div>
@@ -3460,7 +3586,7 @@ $: visibleStages = (isDropped || isMonitoring)
         bind:value={shipment.accountRemark}
         class="w-full px-3 py-2 text-gray-700 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         rows="4"
-        disabled={shipment.isDataSaved}
+        disabled={shipment.isDataSaved || !isEditing}
       ></textarea>
     </div>
   {/if}
@@ -3504,7 +3630,7 @@ $: visibleStages = (isDropped || isMonitoring)
       class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
       rows="4" 
       required
-      disabled={returnPickup.isSaved && !returnPickup.isEditing}
+      disabled={returnPickup.isSaved && !returnPickup.isEditing || !isEditing}
     ></textarea>
   </div>
 
@@ -3594,7 +3720,7 @@ $: visibleStages = (isDropped || isMonitoring)
       class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
       rows="4" 
       required
-      disabled={returnPickup.isDataSaved && !returnPickup.isEditing}
+      disabled={returnPickup.isDataSaved && !returnPickup.isEditing || !isEditing}
     ></textarea>
   </div>
 
