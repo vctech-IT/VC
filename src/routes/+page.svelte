@@ -370,6 +370,7 @@ function formatDate(date: string): string {
       <KPICard title="Total Installations" title2="" value={activeInstallations} icon="tools" color="bg-amber-700" on:click={handleCardClick} />
       <KPICard title="Total Services" title2="" value={activeServices} icon="cogs" color="bg-rose-700" on:click={handleCardClick} />
     </div>
+    
 
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
       <h2 class="text-2xl font-semibold mb-4 text-gray-800">Orders by Stage</h2>

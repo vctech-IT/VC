@@ -27,7 +27,7 @@ async function fetchPreviousStagesData(currentStage: number, salesOrder: SalesOr
   const data: any = {};
   let SONo = salesOrder.salesorder_number;
 
-  for (let stage = 0; stage < currentStage; stage++) {
+  for (let stage = 0; stage <= currentStage; stage++) {
     switch (stage) {
       case 0:
         const stage0Data = await prisma.stage0.findFirst({

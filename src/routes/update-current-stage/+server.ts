@@ -16,6 +16,15 @@ export async function POST({ request }) {
             where: { SONumber: SONumber },
             data: { currentStage: currentStage }
         });
+      
+          // Record the stage change in StageHistory
+         await prisma.stageHistory.create({
+                data: {
+                    SONumber: SONumber,
+                    stage: currentStage,
+                    // timestamp will be set automatically to the current time
+                }
+            });
 
         return json({ success: true, data: updatedStage0 });
     } catch (error) {

@@ -141,7 +141,7 @@
     }
 </script>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8 overflow-hidden">
     <div class="mb-6 flex flex-wrap items-center gap-4">
         <div class="flex-grow flex items-center">
             <input
@@ -211,11 +211,14 @@
     {/if}
         
     {#if orders.length > 0}
+     <div class="h-[calc(100vh-250px)] overflow-auto">
         <SalesOrderTable
             {orders}
             columns={columns.filter(col => col.selected)}
             on:rowClick={handleRowClick}
         />
+    </div>
+
 
     <div class="flex justify-between items-center my-6">
         <button

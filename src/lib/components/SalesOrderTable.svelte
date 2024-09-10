@@ -1,3 +1,4 @@
+<!-- salesOrderTable.svelte -->
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
     import type { SalesOrder } from '$lib/types';
@@ -14,6 +15,7 @@
 
     let isLoading = false;
     const dispatch = createEventDispatcher();
+
     function getColumnValue(order: SalesOrder & { opsStatus: number | null }, key: string) {
         switch(key) {
             case 'date': return formatDate(order.date);
@@ -128,12 +130,16 @@
     }
 </script>
 
-<div class="overflow-x-auto bg-white shadow-md rounded-lg">
+<!-- Updated Container with Vertical Scrolling -->
+<div class="overflow-x-auto overflow-y-auto max-h-[600px] bg-white shadow-md rounded-lg">
     <table class="min-w-full divide-y divide-blue-200">
         <thead class="bg-blue-500">
             <tr>
                 {#each columns.filter(col => col.selected) as column}
-                    <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap">
+                    <!-- Apply sticky classes to each <th> -->
+                    <th 
+                        class="sticky top-0 z-10 px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap bg-blue-500"
+                    >
                         {column.label}
                     </th>
                 {/each}
@@ -142,8 +148,8 @@
         <tbody class="bg-white divide-y divide-blue-100">
             {#each orders as order, index}
                 <tr 
-                class="hover:bg-blue-50 cursor-pointer transition-colors duration-200 {index % 2 === 0 ? 'bg-blue-50' : 'bg-white'}"
-                on:click={() => handleRowClick(order)}
+                    class="hover:bg-blue-50 cursor-pointer transition-colors duration-200 {index % 2 === 0 ? 'bg-blue-50' : 'bg-white'}"
+                    on:click={() => handleRowClick(order)}
                 >
                     {#each columns as column}
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
@@ -153,9 +159,11 @@
                                 </span>
                             {:else if column.key === 'invoiced_status' || column.key === 'payment_status'}
                                 <span class="px-2 inline-flex items-center text-xs leading-5 font-semibold rounded-full" title={getStatusText(getColumnValue(order, column.key)) || 'Undefined'}>
-                                    <svelte:component this={getStatusIcon(getColumnValue(order, column.key))} 
-                                                      color={getIconStatusColor(getColumnValue(order, column.key))} 
-                                                      class="w-6 h-6 icon-hover" />
+                                    <svelte:component 
+                                        this={getStatusIcon(getColumnValue(order, column.key))} 
+                                        color={getIconStatusColor(getColumnValue(order, column.key))} 
+                                        class="w-6 h-6 icon-hover" 
+                                    />
                                 </span>
                             {:else if column.key === 'ops_status'}
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {getOpsStatusColor(order.opsStatus)}">
@@ -178,9 +186,9 @@
     </div>
 {/if}
 
-
-
 <style>
+    /* Existing styles can remain, but ensure no conflicts with Tailwind */
+
     .bg-blue-50 {
         background-color: #eff6ff;
     }

@@ -48,10 +48,12 @@ const prisma = new PrismaClient({
                 isAvailable: item.isAvailable,
                 serialNo: item.serialNo,
                 invoiceNo: item.invoiceNo,
-                attachment: item.attachment
+                invoiceattachment: item.invoiceattachment
               }))
             });
           }
+
+          if (data.dcBoxes) {
           await prisma.stage1.create({
             data: {
               SONumber: data.dcBoxes.SONumber,
@@ -62,44 +64,51 @@ const prisma = new PrismaClient({
               EstdDeliveryDate: new Date(data.dcBoxes.EstdDeliveryDate).toISOString(),
               dcAmount: data.dcBoxes.dcAmount,
               attachment: data.dcBoxes.attachment,
-              lineItemCount: data.dcBoxes.lineItemCount || 0,
               isSaved: data.dcBoxes.isSaved || false,
-              lineItemIndices: data.dcBoxes.lineItemIndices || [],
               fileName: data.dcBoxes.fileName || '',
               filePreviewUrl: data.dcBoxes.filePreviewUrl,
               billType: data.dcBoxes.billType || 'DC',
               isTypeSet: data.dcBoxes.isTypeSet || false,
               dcDetails: {
                 create: {
-                  dcNumber: data.dcBoxes.dcDetails.dcNumber,
-                  customerName: data.dcBoxes.dcDetails.customerName,
-                  companyName: data.dcBoxes.dcDetails.companyName,
-                  dcDate: new Date(data.dcBoxes.dcDetails.dcDate).toISOString(),
-                  total: data.dcBoxes.dcDetails.total,
-                  status: data.dcBoxes.dcDetails.status,
-                  challanStatus: data.dcBoxes.dcDetails.challanStatus,
-                  referenceNumber: data.dcBoxes.dcDetails.referenceNumber,
-                  branchName: data.dcBoxes.dcDetails.branchName
+                  dcNumber: data.dcBoxes.validatedData.deliverychallan_number,
+                  customerName: data.dcBoxes.validatedData.customer_name,
+                  dcDate: new Date(data.dcBoxes.validatedData.date).toISOString(),
+                  total: data.dcBoxes.validatedData.total,
+                  status: data.dcBoxes.validatedData.status,
                 }
               }
             }
-            })
+            })}
           break;
-    //     case 2:
-    //       result = await prisma.stage2.create({
-    //         data: { age: parseInt(data.age), occupation: data.occupation }
-    //       });
-    //       break;
+        case 2:
+          for (const item of data.lineItems) {
+            await prisma.lineItems.updateMany({
+              where: {
+                SONumber: item.SONumber,
+                Itemid: item.Itemid,
+                status: 'not_available', // Update only items with this specific status
+              },
+              data: {
+                serialNo: item.serialNo,
+                invoiceNo: item.invoiceNo,
+                invoiceattachment: item.invoiceattachment, // Ensure this field is correctly named and exists in the schema
+                status: item.status, // Update the status to 'available' or 'need to purchase locally'
+              },
+            });
+          }
+          break;
+  
         case 3:
           console.log("Data received in case 3:");
           console.log(JSON.stringify(data, null, 2));
           if (data.Ticketid==''){
             result = await prisma.installation.create({
-              data: { SONumber: data.SONumber,engName:data.engName,ScheduleDate:new Date(data.ScheduleDate).toISOString(),MobNo:data.MobNo,VendorName:data.VendorName,InstallationRem:data.Remark,InstReport:data.Report ,activeTab: data.activeTab}
+              data: { SONumber: data.SONumber,engName:data.engName,ScheduleDate:new Date(data.ScheduleDate).toISOString(),MobNo:data.MobNo,VendorName:data.VendorName,InstallationRem:data.Remark,InstReport:data.Report ,activeTab: data.activeTab, InstReportName:data.InstReportName}
           });
           }else if(data.Ticketid){
             result = await prisma.service.create({
-              data: { SONumber: data.SONumber,engName:data.engName,ScheduleDate:new Date(data.ScheduleDate).toISOString(),MobNo:data.MobNo,VendorName:data.VendorName,ServiceRem:data.Remark,ServiceReport:data.Report, Serticketid: data.Ticketid ,activeTab: data.activeTab}
+              data: { SONumber: data.SONumber,engName:data.engName,ScheduleDate:new Date(data.ScheduleDate).toISOString(),MobNo:data.MobNo,VendorName:data.VendorName,ServiceRem:data.Remark,ServiceReport:data.Report, Serticketid: data.Ticketid ,activeTab: data.activeTab,ServiceReportName:data.ServiceReportName}
             });
           }
           if (data.ReturnPickupName){
