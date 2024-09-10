@@ -2328,7 +2328,7 @@ $: visibleStages = (isDropped || isMonitoring)
   }
   async function fetchPreviousStagesData() {
   try {
-    const response = await fetch(`/fetch-previous-stages`, {
+    const response = await fetch(`/fetch-previous`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentStage, salesOrder}),
