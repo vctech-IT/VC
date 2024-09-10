@@ -157,7 +157,7 @@ onMount(async () => {
 }
 if ( currentStage === 1) {
   currentStage = moveStage= 1;
-  if (!lineItemsWithStatus) {
+  if (lineItemsWithStatus.length === 0) {
     
   lineItemsWithStatus= salesOrder.line_items.map(item => ({
     Itemid: item.line_item_id || '',  
