@@ -13,7 +13,7 @@
     import { fly } from 'svelte/transition';
     import { Clock, User, Activity } from 'svelte-lucide';
     import { invalidate } from '$app/navigation';
-	import StageModalRef from '$lib/components/StageModalRef.svelte';
+	import  StageModal  from '$lib/components/StageModalRef.svelte';
 
     export let data: PageData;
 
@@ -481,7 +481,10 @@ onMount(() => {
     on:close={toggleStageUpdateModal}
   /> -->
 {#if showStageUpdateModal}
-  <StageModalRef 
+  <StageModal
+username={data.user.name}
+    userRole={data.user.role}
+    currentStage={currentStage?.currentStage ?? null}
     data={{
       user: {
         name: data.user.name,
@@ -491,11 +494,11 @@ onMount(() => {
         createdAt: data.user.createdAt,
         phoneNo: data.user.phoneNo,
         image: data.user.image,
-        status: data.user.status,
-        verificationToken: ''
+        status: data.user.status
       }
     }}
     salesOrder={salesOrder}
+    Stage0Data={Stage0Data}
     on:close={() => showStageUpdateModal = false}
   />
 {/if}

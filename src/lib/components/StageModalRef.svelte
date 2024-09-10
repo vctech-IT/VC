@@ -28,45 +28,6 @@
 
     let isEditing = false;
 
-  // Define stage data with role-based edit permissions
-  let stageData: StageData[] = [
-  { 
-    title: 'Stage 0. Site Not Ready', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
-  },
-  { 
-    title: 'Stage 1. Logistics', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'WAREHOUSE']
-  },
-  { 
-    title: 'Stage 2. Material to Procure', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'MATERIALPROCURE']
-  },
-  { 
-    title: 'Stage 3. On Going', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
-  },
-  { 
-    title: 'Stage 4. Return Pickup', 
-    completed: false, 
-    visible: false,
-    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
-  },
-  { 
-    title: 'Stage 5. Share with Account', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
-  }
-];
 
 $: console.log('Current stage in modal:', currentStage);
 let moveStage=currentStage;
@@ -2200,6 +2161,54 @@ $: visibleStages = (isDropped || isMonitoring)
 
     dcBoxes = [...dcBoxes]; // Trigger reactivity
   }
+
+    // Define stage data with role-based edit permissions
+  let stageData: StageData[] = [
+  { 
+    title: 'Stage 0. Site Not Ready', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+  },
+  { 
+    title: 'Stage 1. Logistics', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'WAREHOUSE']
+  },
+  { 
+    title: 'Stage 2. Material to Procure', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'MATERIALPROCURE']
+  },
+  { 
+    title: 'Stage 3. On Going', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
+  },
+  { 
+    title: 'Stage 4. Return Pickup', 
+    completed: false, 
+    visible: false,
+    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
+  },
+  { 
+    title: 'Stage 5. Share with Account', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+  }
+];
+
+  // Function to check if the current user can edit a specific stage
+  function canEditStage(userRole: Role, stage: StageData): boolean {
+    return stage.editableRoles.includes(userRole) || userRole === 'ADMIN';
+  }
+
+   $: isEditing = canEditStage(data.user.role as Role, stageData[currentStage]);
+
 
   async function showDCDetails(dcIndex: number) {
     selectedDC = dcBoxes[dcIndex];
