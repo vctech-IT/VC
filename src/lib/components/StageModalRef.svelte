@@ -68,13 +68,6 @@
   }
 ];
 
-  // Function to check if the current user can edit a specific stage
-  function canEditStage(userRole: Role, stage: StageData): boolean {
-    return stage.editableRoles.includes(userRole) || userRole === 'ADMIN';
-  }
-
-   $: isEditing = canEditStage(data.user.role as Role, stageData[currentStage]);
-
 $: console.log('Current stage in modal:', currentStage);
 let moveStage=currentStage;
 $: console.log('Move stage in modal:', moveStage);
