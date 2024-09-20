@@ -79,6 +79,7 @@
 		"svelte-lucide": "^1.0.6",
 		"svelte-modals": "^1.3.0",
 		"svelte-simple-modal": "^1.6.2",
+		"svelte-toast": "^1.0.0",
 		"svelte-tooltip": "^1.2.0",
 		"sweetalert2": "^11.12.4",
 		"swiper": "^11.1.4",

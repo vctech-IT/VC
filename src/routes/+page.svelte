@@ -13,7 +13,7 @@ import LineChart from '$lib/components/LineChart.svelte';
 import { faFileAlt } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
 import { goto } from '$app/navigation';
-import { fade } from 'svelte/transition';
+import { fade, fly } from 'svelte/transition';
 import { quintOut } from 'svelte/easing';
 import { ChevronDown, Filter } from 'lucide-svelte';
 
@@ -34,7 +34,10 @@ let conversionRate = 0;
 let dateRange = { start: null, end: null };
 let orderChart: Chart;
 let showModal = false;
-let orderStatus = 'all';
+let orderStatus = 'open';
+let selectedClient: string | null = null;
+let selectedCategory: string | null = null;
+
 
 let agingData: {
   summary: { [key: number]: { onTime: number; overdue: number } };
@@ -57,8 +60,8 @@ interface ModalContent {
   totalOrders: number;
   totalSum: number;
   categorizedData: {
-    byClient: { [key: string]: { orders: number; sum: number } };
-    byCategory: { [key: string]: { orders: number; sum: number } };
+    byClient: { [key: string]: { orders: number; sum: number; soNumbers: string[] } };
+    byCategory: { [key: string]: { orders: number; sum: number; soNumbers: string[] } };
   };
   soNumbers: Array<{ SONumber: string; SOId: string }>;
   details?: Array<{
@@ -90,6 +93,17 @@ let modalContent: ModalContent = {
 function sortStages(a: any, b: any) {
   return a.stage - b.stage;
 }
+
+function showSONumbers(item: string, type: 'client' | 'category') {
+  if (type === 'client') {
+    selectedClient = selectedClient === item ? null : item;
+    selectedCategory = null;
+  } else {
+    selectedCategory = selectedCategory === item ? null : item;
+    selectedClient = null;
+  }
+}
+
 
 async function fetchDashboardData() {
   const response = await fetch('/api/dashboard-data', {
@@ -238,7 +252,7 @@ async function handleCardClick(event: any) {
     const response = await fetch('/api/stage-details', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage, ...dateRange })
+      body: JSON.stringify({ stage, ...dateRange, orderStatus })
     });
     const data = await response.json();
     
@@ -261,8 +275,8 @@ async function handleCardClick(event: any) {
 
 function processModalData(orders: any[], title: string, totalOrders: number): ModalContent {
   let totalSum = 0;
-  let byClient: { [key: string]: { orders: number; sum: number } } = {};
-  let byCategory: { [key: string]: { orders: number; sum: number } } = {};
+  let byClient: { [key: string]: { orders: number; sum: number; soNumbers: string[] } } = {};
+  let byCategory: { [key: string]: { orders: number; sum: number; soNumbers: string[] } } = {};
   let soNumbers: Array<{ SONumber: string; SOId: string }> = [];
 
   for (let order of orders) {
@@ -271,17 +285,19 @@ function processModalData(orders: any[], title: string, totalOrders: number): Mo
 
     // Process by client
     if (!byClient[order.clientName]) {
-      byClient[order.clientName] = { orders: 0, sum: 0 };
+      byClient[order.clientName] = { orders: 0, sum: 0, soNumbers: [] };
     }
     byClient[order.clientName].orders++;
     byClient[order.clientName].sum += order.Total;
+    byClient[order.clientName].soNumbers.push(order.SONumber);
 
     // Process by category
     if (!byCategory[order.SOCategory]) {
-      byCategory[order.SOCategory] = { orders: 0, sum: 0 };
+      byCategory[order.SOCategory] = { orders: 0, sum: 0, soNumbers: [] };
     }
     byCategory[order.SOCategory].orders++;
     byCategory[order.SOCategory].sum += order.Total;
+    byCategory[order.SOCategory].soNumbers.push(order.SONumber);
   }
 
   return {
@@ -352,7 +368,7 @@ function formatDate(date: string): string {
           on:change={handleOrderStatusChange}
         >
           <option value="all">All Orders</option>
-          <option value="open">Open Orders</option>
+          <option value="open" selected>Open Orders</option>
           <option value="closed">Closed Orders</option>
           <option value="void">Void Orders</option>
           <option value="dropped">Dropped Orders</option>
@@ -472,21 +488,6 @@ function formatDate(date: string): string {
       </div>
     </div>
     
-    <div class="bg-white rounded-lg shadow-md p-6">
-      <ReportGenerator 
-        {totalOrders}
-        {totalRevenue}
-        {activeInstallations}
-        {activeServices}
-        {orderCategories}
-        {ordersByStage}
-        {recentOrders}
-        {topCustomers}
-        {ordersByMonth}
-        {averageOrderValue}
-        {conversionRate}
-      />
-    </div>
   </div>
 </div>
 
@@ -511,49 +512,103 @@ function formatDate(date: string): string {
       <Tabs tabs={['By Client', 'By Category', 'SO Numbers']} bind:activeTab>
         <div class="overflow-x-auto">
           <div class="inline-block min-w-full align-middle">
-            {#if activeTab === 0}
-              <div class="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
-                <table class="min-w-full divide-y divide-gray-200">
-                  <thead class="bg-gray-50">
-                    <tr>
-                      <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client Name</th>
-                      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sum</th>
+          {#if activeTab === 0}
+            <div class="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client Name</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sum</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  {#each Object.entries(modalContent.categorizedData.byClient) as [client, data]}
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 cursor-pointer" on:click={() => showSONumbers(client, 'client')}>
+                        {client}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{data.orders}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">₹{data.sum.toLocaleString()}</td>
                     </tr>
-                  </thead>
-                  <tbody class="bg-white divide-y divide-gray-200">
-                    {#each Object.entries(modalContent.categorizedData.byClient) as [client, data]}
-                      <tr class="hover:bg-gray-50 transition-colors duration-150">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{client}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{data.orders}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">₹{data.sum.toLocaleString()}</td>
+                    {#if selectedClient === client}
+                      <tr>
+                        <td colspan="3" class="px-6 py-4">
+                          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {#each data.soNumbers as soNumber}
+                              {@const soData = modalContent.soNumbers.find(so => so.SONumber === soNumber)}
+                              {@const agingInfo = modalContent.agingData.find(item => item.SONumber === soNumber)}
+                              {#if soData}
+                                <div 
+                                  class="p-2 rounded text-xs font-medium cursor-pointer transition-colors duration-150 {getAgingColor(agingInfo?.ageInHours || 0)}"
+                                  on:click={() => handleSOClick(soData.SOId)}
+                                >
+                                  {soNumber}
+                                  {#if agingInfo}
+                                    <span class="block mt-1">
+                                      Age: {agingInfo.ageInHours}h
+                                    </span>
+                                  {/if}
+                                </div>
+                              {/if}
+                            {/each}
+                          </div>
+                        </td>
                       </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {:else if activeTab === 1}
-              <div class="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
-                <table class="min-w-full divide-y divide-gray-200">
-                  <thead class="bg-gray-50">
-                    <tr>
-                      <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sum</th>
+                    {/if}
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {:else if activeTab === 1}
+            <div class="overflow-hidden border-b border-gray-200 shadow sm:rounded-lg">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sum</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  {#each Object.entries(modalContent.categorizedData.byCategory) as [category, data]}
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 cursor-pointer" on:click={() => showSONumbers(category, 'category')}>
+                        {category}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{data.orders}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">₹{data.sum.toLocaleString()}</td>
                     </tr>
-                  </thead>
-                  <tbody class="bg-white divide-y divide-gray-200">
-                    {#each Object.entries(modalContent.categorizedData.byCategory) as [category, data]}
-                      <tr class="hover:bg-gray-50 transition-colors duration-150">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{category}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{data.orders}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">₹{data.sum.toLocaleString()}</td>
+                    {#if selectedCategory === category}
+                      <tr>
+                        <td colspan="3" class="px-6 py-4">
+                          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {#each data.soNumbers as soNumber}
+                              {@const soData = modalContent.soNumbers.find(so => so.SONumber === soNumber)}
+                              {@const agingInfo = modalContent.agingData.find(item => item.SONumber === soNumber)}
+                              {#if soData}
+                                <div 
+                                  class="p-2 rounded text-xs font-medium cursor-pointer transition-colors duration-150 {getAgingColor(agingInfo?.ageInHours || 0)}"
+                                  on:click={() => handleSOClick(soData.SOId)}
+                                >
+                                  {soNumber}
+                                  {#if agingInfo}
+                                    <span class="block mt-1">
+                                      Age: {agingInfo.ageInHours}h
+                                    </span>
+                                  {/if}
+                                </div>
+                              {/if}
+                            {/each}
+                          </div>
+                        </td>
                       </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {:else}
+                    {/if}
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {:else}
               <div class="bg-white rounded-lg shadow-sm p-4">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">SO Numbers</h3>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

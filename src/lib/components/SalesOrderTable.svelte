@@ -138,7 +138,7 @@
                 {#each columns.filter(col => col.selected) as column}
                     <!-- Apply sticky classes to each <th> -->
                     <th 
-                        class="sticky top-0 z-10 px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap bg-blue-500"
+                        class="sticky top-0 z-0 px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap bg-blue-500"
                     >
                         {column.label}
                     </th>

@@ -5,7 +5,7 @@ import { db } from '$lib/database';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { stage, start, end } = await request.json();
+    const { stage, start, end, orderStatus } = await request.json();
 
     const dateFilter = {};
     if (start && end) {
@@ -15,10 +15,13 @@ export const POST: RequestHandler = async ({ request }) => {
       };
     }
 
+    const statusFilter = orderStatus === 'all' ? {} : { orderStatus };
+
     const orders = await db.stage0.findMany({
       where: {
         currentStage: stage,
-        ...dateFilter
+        ...dateFilter,
+        ...statusFilter
       },
       select: {
         SONumber: true,
@@ -29,6 +32,7 @@ export const POST: RequestHandler = async ({ request }) => {
         PMName: true,
         clientExpectedDate: true,
         createdAt: true,
+        orderStatus: true,
         stageHistory: {
           orderBy: {
             timestamp: 'desc'
@@ -39,13 +43,20 @@ export const POST: RequestHandler = async ({ request }) => {
       orderBy: { createdAt: 'desc' },
     });
 
-  const processedOrders = orders.map(order => ({
-  ...order,
-  ageInHours: order.stageHistory[0] 
-    ? Math.round((new Date().getTime() - new Date(order.stageHistory[0].timestamp).getTime()) / (60 * 60 * 1000))
-    : 0,
-  lastUpdated: order.stageHistory[0] ? order.stageHistory[0].timestamp : null
-}));
+    const now = new Date();
+    const processedOrders = orders.map(order => {
+      const lastUpdated = order.stageHistory[0]?.timestamp;
+      const ageInHours = lastUpdated
+        ? Math.round((now.getTime() - new Date(lastUpdated).getTime()) / (60 * 60 * 1000))
+        : 0;
+
+      return {
+        ...order,
+        ageInHours,
+        lastUpdated,
+        isOverdue: ageInHours > 48 // Assuming orders are overdue after 48 hours, adjust as needed
+      };
+    });
 
     return json({ orders: processedOrders });
   } catch (error) {

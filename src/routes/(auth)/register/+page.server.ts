@@ -2,7 +2,6 @@ import { fail, redirect } from '@sveltejs/kit'
 import type { Action, Actions, PageServerLoad } from './$types'
 import bcrypt from 'bcrypt'
 import { db } from '$lib/database'
-import { sendAdminNotification, sendOTP } from '$lib/emailService'
 
 // // using an enum for user roles to avoid typos
 // // if you're not using TypeScript use an object
@@ -12,8 +11,7 @@ enum Roles {
   OPERATION = 'OPERATION',
   WAREHOUSE = 'WAREHOUSE',
   MATERIALPROCURE = 'MATERIALPROCURE',
-  ACCOUNTANT = 'ACCOUNTANT',
-  MANAGER = 'MANAGER'
+  ACCOUNTANT = 'ACCOUNTANT'
 }
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -82,66 +80,21 @@ const register: Action = async ({ request }) => {
     if (phoneno) {
         return fail(400, { phoneno: true })
     }
-  try {
-      const otp = generateOTP();
-      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-      const newUser = await db.user.create({
-        data: {
-          username,
-          passwordHash: await bcrypt.hash(password, 10),
-          email,
-          phoneNo: phone,
-          userAuthToken: crypto.randomUUID(),
-          role: { connect: { name: role as Roles } },
-          otp,
-          otpExpires,
-        },
-        include: { role: true }, // Include the role information
-      })
-    
-      await sendOTP(newUser.email, otp);
 
-      console.log('New user created:', newUser);
+    //creating the user in db
+  await db.user.create({
+    data: {
+      username,
+      passwordHash: await bcrypt.hash(password, 10),
+      email,
+      phoneNo: phone,
 
-      const adminUsers = await db.user.findMany({
-        where: { 
-          AND: [
-            { role: { name: 'ADMIN' } },
-            { isApproved: true }
-          ]
-        },
-        select: { email: true, username: true }
-      })
+      userAuthToken: crypto.randomUUID(),
+      role: { connect: { name: role as Roles } },
+    },
+  })
 
-      console.log('Admin users found:', adminUsers);
-
-      for (const admin of adminUsers) {
-        console.log('Attempting to send email to admin:', admin.email);
-        await sendAdminNotification(newUser, admin.email, admin.username)
-      }
-
-      console.log('All admin notifications sent');
-
-        return {
-          success: true,
-          message: 'Please check your email for verification instructions.'
-        };
-    } catch (error) {
-      console.error('Error during registration:', error)
-      return fail(500, { error: 'An error occurred during registration' })
-    }
+  redirect(303, '/login')
 }
 
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-export const actions: Actions = {
-  register: async (event) => {
-    const result = await register(event);
-    if (result && 'success' in result && result.success) {
-      return { success: true };
-    }
-    return result;
-  }
-};
+export const actions: Actions = { register }

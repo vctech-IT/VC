@@ -25,8 +25,48 @@
   visible: boolean;
   editableRoles: Role[];
 }
+  let isEditing = false;
 
-    let isEditing = false;
+  // Define stage data with role-based edit permissions
+  let stageData: StageData[] = [
+  { 
+    title: 'Stage 0. Site Not Ready', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+  },
+  { 
+    title: 'Stage 1. Logistics', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'WAREHOUSE']
+  },
+  { 
+    title: 'Stage 2. Material to Procure', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'MATERIALPROCURE']
+  },
+  { 
+    title: 'Stage 3. On Going', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
+  },
+  { 
+    title: 'Stage 4. Return Pickup', 
+    completed: false, 
+    visible: false,
+    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
+  },
+  { 
+    title: 'Stage 5. Share with Account', 
+    completed: false, 
+    visible: true,
+    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+  }
+];
+
 
 
 $: console.log('Current stage in modal:', currentStage);
@@ -387,6 +427,13 @@ if ( currentStage === 5) {
     retaccountRemark:''
   }
 }
+
+// Function to check if the current user can edit a specific stage
+function canEditStage(userRole: Role, stage: StageData,moveStage: number): boolean {
+    return ((stage.editableRoles.includes(userRole) || userRole === 'ADMIN') && (moveStage >= currentStage));
+  }
+
+$: isEditing = canEditStage(data.user.role as Role, stageData[currentStage],moveStage);
 
 // Variables for dropped and monitoring states
 let isDropped = false;
@@ -2162,54 +2209,6 @@ $: visibleStages = (isDropped || isMonitoring)
     dcBoxes = [...dcBoxes]; // Trigger reactivity
   }
 
-    // Define stage data with role-based edit permissions
-  let stageData: StageData[] = [
-  { 
-    title: 'Stage 0. Site Not Ready', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
-  },
-  { 
-    title: 'Stage 1. Logistics', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'WAREHOUSE']
-  },
-  { 
-    title: 'Stage 2. Material to Procure', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'MATERIALPROCURE']
-  },
-  { 
-    title: 'Stage 3. On Going', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
-  },
-  { 
-    title: 'Stage 4. Return Pickup', 
-    completed: false, 
-    visible: false,
-    editableRoles: ['ADMIN', 'MANAGER', 'OPERATION']
-  },
-  { 
-    title: 'Stage 5. Share with Account', 
-    completed: false, 
-    visible: true,
-    editableRoles: ['ADMIN', 'MANAGER', 'ACCOUNTANT']
-  }
-];
-
-  // Function to check if the current user can edit a specific stage
-  function canEditStage(userRole: Role, stage: StageData): boolean {
-    return stage.editableRoles.includes(userRole) || userRole === 'ADMIN';
-  }
-
-   $: isEditing = canEditStage(data.user.role as Role, stageData[currentStage]);
-
-
   async function showDCDetails(dcIndex: number) {
     selectedDC = dcBoxes[dcIndex];
     if (selectedDC.validatedData) {
@@ -2483,6 +2482,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             currentStage === index ? 'bg-white border-2 border-blue-500 text-blue-500' : 'bg-white border-2 border-gray-300 text-gray-400'
           } hover:bg-blue-100 hover:border-blue-500 hover:text-blue-500 focus:outline-none shadow-md group-hover:shadow-lg"
           on:click={() => moveStage = index}
+          disabled={index > currentStage}
           >
             {index}
           </button>
@@ -2568,7 +2568,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 
     <form on:submit={handleSubmit}>
       <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 bg-white rounded-lg shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl border border-gray-200">
-        <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2 transition-colors duration-200">{stageData[currentStage].title}</h3>
+        <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2 transition-colors duration-200">{stageData[moveStage].title}</h3>
 
       {#if moveStage === 0}
         <!-- API data fields -->
@@ -4370,8 +4370,8 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 
       <div class="mt-8 space-y-6">
         <!-- Navigation and action buttons -->
-        <div class="flex flex-wrap justify-between items-center gap-4">
-          <div class="space-x-2">
+        <div class="flex flex-wrap items-end gap-4">
+          <!-- <div class="space-x-2">
           <button 
             type="button" 
             on:click={goToPreviousStage}
@@ -4386,9 +4386,8 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
               >
               Next Stage
           </button>
-        </div>
-        <div class="space-x-2">
-          {#if stageData[currentStage].completed}
+        </div> -->
+          <!-- {#if stageData[currentStage].completed}
           <button 
           type="button" 
           on:click={editStage} 
@@ -4396,14 +4395,13 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         >
                 Edit
               </button>
-            {/if}   
+            {/if}    -->    
         <button 
         type="submit" 
-        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition duration-150 ease-in-out"
+        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition duration-150 ease-in-out ml-auto"
       >
         Submit
-      </button>
-    </div>            
+      </button>           
           </div>
 
     <!-- Time information -->

@@ -24,11 +24,29 @@
   { icon: Truck, label: 'Delivery Challans', href: '/deliveryChallan' }
 ];
 
-  const handleNavigation = (href: string) => {
-    isLoading.set(true);
-    goto(href).then(() => {
-      isLoading.set(false);
-    });
+const handleNavigation = (href: string) => {
+    if (href === '/api/export-data') {
+      isLoading.set(true);
+      fetch(href)
+        .then(response => response.blob())
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = 'database_export.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+        })
+        .catch(error => console.error('Error exporting data:', error))
+        .finally(() => isLoading.set(false));
+    } else {
+      isLoading.set(true);
+      goto(href).then(() => {
+        isLoading.set(false);
+      });
+    }
   };
 </script>
 
@@ -75,6 +93,19 @@
           </a>
         </li>
       {/each}
+      {#if $page.data.user.role === 'ADMIN'}
+      <li>
+        <a href="api/export-data"
+          on:click|preventDefault={() => handleNavigation('api/export-data')}
+          class="flex items-center p-2 rounded-md hover:bg-sky-800 transition-colors duration-200 {$page.url.pathname === 'api/export-data' ? 'bg-sky-900' : ''}"
+        >
+          <BarChart2 size={20} />
+          {#if !isMinimized}
+            <span class="ml-3 text-sm">Export Data</span>
+          {/if}
+        </a>
+      </li>
+      {/if}
       
       {#if $page.data.user}
         <form action="/logout" method="POST" use:enhance={() => {
