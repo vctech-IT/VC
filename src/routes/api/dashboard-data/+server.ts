@@ -5,7 +5,7 @@ import { db } from '$lib/database';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { start, end, orderStatus } = await request.json();
+    const { start, end, orderStatus, pmNameFilter } = await request.json();
 
     type DateFilter = {
       createdAt?: {
@@ -23,6 +23,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     const statusFilter = orderStatus === 'all' ? {} : { orderStatus };
+    const pmFilter = pmNameFilter === 'all' ? {} : { PMName: pmNameFilter };
 
     const [
       totalOrders,
@@ -35,12 +36,13 @@ export const POST: RequestHandler = async ({ request }) => {
       topCustomers,
       installationDetails,
       serviceDetails,
-      agingData
+      agingData,
+      pmNames
     ] = await Promise.all([
-      db.stage0.count({ where: { ...dateFilter, ...statusFilter } }),
+      db.stage0.count({ where: { ...dateFilter, ...statusFilter, ...pmFilter } }),
       db.stage0.aggregate({
         _sum: { Total: true },
-        where: { ...dateFilter, ...statusFilter }
+        where: { ...dateFilter, ...statusFilter, ...pmFilter }
       }),
       db.installation.count({
         where: {
@@ -57,7 +59,7 @@ export const POST: RequestHandler = async ({ request }) => {
       db.stage0.groupBy({
         by: ['SOCategory'],
         _count: true,
-        where: dateFilter
+        where: {...dateFilter, ...statusFilter, ...pmFilter}, 
       }),
       db.stage0.findMany({
         where: dateFilter,
@@ -75,7 +77,7 @@ export const POST: RequestHandler = async ({ request }) => {
       db.stage0.groupBy({
         by: ['currentStage'],
         _count: true,
-        where: {...dateFilter, ...statusFilter }
+        where: {...dateFilter, ...statusFilter, ...pmFilter }
       }),
       db.stage0.groupBy({
         by: ['clientName'],
@@ -83,7 +85,7 @@ export const POST: RequestHandler = async ({ request }) => {
         _sum: { Total: true },
         orderBy: [{ _sum: { Total: 'desc' } }],
         take: 10,
-        where: dateFilter
+        where: {...dateFilter, ...statusFilter, ...pmFilter},
       }),
       // Installation details
       db.installation.findMany({
@@ -139,6 +141,15 @@ export const POST: RequestHandler = async ({ request }) => {
               }
             }
           }),
+          db.stage0.findMany({
+        select: {
+          PMName: true
+        },
+        distinct: ['PMName'],
+        orderBy: {
+          PMName: 'asc'
+        }
+      })
     ]);
 
     const processedAgingData = processAgingData(agingData, new Date());
@@ -182,7 +193,8 @@ export const POST: RequestHandler = async ({ request }) => {
         scheduleDate: s.ScheduleDate,
         vendorName: s.VendorName
       })),
-      agingData: processedAgingData
+      agingData: processedAgingData,
+      pmNames: pmNames.map(pm => pm.PMName)
     });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);

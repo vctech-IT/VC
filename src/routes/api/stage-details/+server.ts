@@ -5,7 +5,7 @@ import { db } from '$lib/database';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { stage, start, end, orderStatus } = await request.json();
+    const { stage, start, end, orderStatus, pmNameFilter } = await request.json();
 
     const dateFilter = {};
     if (start && end) {
@@ -16,12 +16,14 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     const statusFilter = orderStatus === 'all' ? {} : { orderStatus };
+    const pmFilter = pmNameFilter === 'all' ? {} : { PMName: pmNameFilter };
 
     const orders = await db.stage0.findMany({
       where: {
         currentStage: stage,
         ...dateFilter,
-        ...statusFilter
+        ...statusFilter,
+        ...pmFilter
       },
       select: {
         SONumber: true,

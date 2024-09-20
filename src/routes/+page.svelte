@@ -37,6 +37,8 @@ let showModal = false;
 let orderStatus = 'open';
 let selectedClient: string | null = null;
 let selectedCategory: string | null = null;
+let pmNames: string[] = [];
+let selectedPM: string = 'all';
 
 
 let agingData: {
@@ -109,7 +111,7 @@ async function fetchDashboardData() {
   const response = await fetch('/api/dashboard-data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...dateRange, orderStatus })
+    body: JSON.stringify({ ...dateRange, orderStatus, pmNameFilter: selectedPM })
   });
   const data = await response.json();
  
@@ -127,6 +129,7 @@ async function fetchDashboardData() {
   averageOrderValue = data.averageOrderValue;
   conversionRate = data.conversionRate;
   agingData = data.agingData;
+  pmNames = data.pmNames;
   updateChart();
 }
 
@@ -252,7 +255,7 @@ async function handleCardClick(event: any) {
     const response = await fetch('/api/stage-details', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage, ...dateRange, orderStatus })
+      body: JSON.stringify({ stage, ...dateRange, orderStatus, pmNameFilter: selectedPM })
     });
     const data = await response.json();
     
@@ -355,6 +358,10 @@ function formatDate(date: string): string {
   return new Date(date).toLocaleString();
 }
 
+function handlePMFilterChange() {
+  fetchDashboardData();
+}
+
   let isLoading = false;
 </script>
 
@@ -362,22 +369,39 @@ function formatDate(date: string): string {
   <div class="max-w-7xl mx-auto">
     <header class="mb-8 flex justify-between items-center">
       <h1 class="text-3xl font-bold text-slate-800">Dashboard</h1>
-      <div class="relative">
-        <select
-          class="appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-2 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          on:change={handleOrderStatusChange}
-        >
-          <option value="all">All Orders</option>
-          <option value="open" selected>Open Orders</option>
-          <option value="closed">Closed Orders</option>
-          <option value="void">Void Orders</option>
-          <option value="dropped">Dropped Orders</option>
-          <option value="draft">Draft Orders</option>
-        </select>
-        <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-          <Filter class="h-4 w-4 text-gray-400" />
+        <div class="flex items-center space-x-4 mb-4">
+          <div class="relative">
+            <select
+              class="appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-2 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              on:change={handleOrderStatusChange}
+            >
+              <option value="all">All Orders</option>
+              <option value="open" selected>Open Orders</option>
+              <option value="closed">Closed Orders</option>
+              <option value="void">Void Orders</option>
+              <option value="draft">Draft Orders</option>
+            </select>
+            <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+              <Filter class="h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+          
+          <div class="relative">
+            <select
+              class="appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-10 py-2 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              bind:value={selectedPM}
+              on:change={handlePMFilterChange}
+            >
+              <option value="all">All PMs</option>
+              {#each pmNames as pmName}
+                <option value={pmName}>{pmName}</option>
+              {/each}
+            </select>
+            <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+              <Filter class="h-4 w-4 text-gray-400" />
+            </div>
+          </div>
         </div>
-      </div>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
