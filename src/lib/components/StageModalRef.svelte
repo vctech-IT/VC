@@ -1383,22 +1383,65 @@ function updateDCAmount(dcIndex: number) {
 }
   function openPreviewModalDC(dcIndex: number): void {
     const dc = dcBoxes[dcIndex];
-    if (dc && dc.filePreviewUrl) {
+    if (dc && dc.attachment) {
       const modal = document.getElementById('previewModal');
       const previewImage = document.getElementById('previewImage') as HTMLImageElement | null;
       const previewIframe = document.getElementById('previewIframe') as HTMLIFrameElement | null;
+      const previewLink = document.getElementById('previewLink') as HTMLAnchorElement | null; // For doc files
       
-      if (modal && previewImage && previewIframe) {
-        modal.style.display = 'block';
-        const isPDF = dc.fileName.toLowerCase().endsWith('.pdf');
-        previewIframe.src = isPDF ? dc.filePreviewUrl : '';
-        previewIframe.style.display = isPDF ? 'block' : 'none';
+      if (modal && previewImage && previewIframe && previewLink) {
+            modal.style.display = 'block';
 
-        previewImage.src = !isPDF ? dc.filePreviewUrl : '';
-        previewImage.style.display = !isPDF ? 'block' : 'none';
+            const reportName = dc.fileName.toLowerCase();
+            let fileType = '';
+
+            // Determine the file type based on the extension
+            if (reportName.endsWith('.pdf')) {
+                fileType = 'pdf';
+            } else if (reportName.endsWith('.jpg') || reportName.endsWith('.jpeg')) {
+                fileType = 'jpeg';
+            } else if (reportName.endsWith('.png')) {
+                fileType = 'png';
+            } else if (reportName.endsWith('.doc') || reportName.endsWith('.docx')) {
+                fileType = 'doc';
+            }
+
+            const base64Data = dc.attachment;
+            
+            if (fileType === 'pdf') {
+                // Show PDF in iframe
+                previewIframe.src = base64Data;
+                previewIframe.style.display = 'block';
+                previewImage.style.display = 'none';
+                previewLink.style.display = 'none';
+            } else if (fileType === 'jpeg' || fileType === 'png') {
+                // Show image in img tag
+                previewImage.src = base64Data;
+                previewImage.style.display = 'block';
+                previewIframe.style.display = 'none';
+                previewLink.style.display = 'none';
+            } else if (fileType === 'doc' || fileType === 'docx') {
+                // Provide a download link for DOC files
+                previewLink.href = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Data}`;
+                previewLink.download = Stage3Data.ReportName;
+                previewLink.textContent = 'Download Document';
+                previewLink.style.display = 'block';
+                previewImage.style.display = 'none';
+                previewIframe.style.display = 'none';
+            } else {
+                console.error('Unsupported file type');
+                previewIframe.style.display = 'none';
+                previewImage.style.display = 'none';
+                previewLink.style.display = 'none';
+            }
+        } else {
+            console.error('Modal or preview elements not found in the DOM.');
         }
-      }
+    } else {
+        console.error('No data found in DC.attachment');
     }
+}
+
 
   // Function to close preview modal
   function closePreviewModal() {
@@ -1416,28 +1459,6 @@ function updateDCAmount(dcIndex: number) {
     previewIframe.src = '';
   }
   }
-
- 
-  // For downloading from a URL (Stage 1)
-  async function downloadFileFromUrl(url: string | null, fileName: string) {
-  if (url) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName || 'download';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } else {
-    await Swal.fire({
-        title: 'Oops...',
-        text: 'No file available for download',
-        icon: 'warning',
-        confirmButtonText: 'OK'
-      });
-    console.error('No file available for download');
-  }
-}
 
 
   // Stage 2 related functions
@@ -1740,11 +1761,16 @@ function updateShareWithAccountStage() {
     const file = input.files?.[0];
     
       if (file && (!shipments[index].isSaved || shipments[index].isEditing)) {
+        showCustomNameModal = true;
+        const extension = file.name.split('.').pop() || '';
+        customFileName = file.name.replace(`.${extension}`, '');
+        customFileExtension = extension;
         try {
           const base64String = await convertFileToBase64(file);
             Stage3Data.Report = base64String;
             Stage3Data.ReportName = file.name;
-        shipments = [...shipments]; // Trigger reactivity
+            Stage3Data.PreviewUrl= URL.createObjectURL(file);
+            shipments = [...shipments]; // Trigger reactivity
         }catch (error) {
           console.error('Error converting file to base64:', error);}
     } lastSavedTimes[currentStage] = getCurrentDateTime();
@@ -1781,29 +1807,156 @@ function updateShareWithAccountStage() {
 
   // Return pickup related functions
 
-  function previewFile(file: File | string | null) {
-  if (!file) return;
+//   function previewFile() {
+//     if (Stage3Data.PreviewUrl) {
+//       const modal = document.getElementById('previewModal');
+//       const previewImage = document.getElementById('previewImage') as HTMLImageElement | null;
+//       const previewIframe = document.getElementById('previewIframe') as HTMLIFrameElement | null;
+      
+//       console.log('Preview URL:', Stage3Data.PreviewUrl);
+//       console.log('Report Name:', Stage3Data.ReportName);
 
-  if (typeof file === 'string') {
-    openPreviewModal(null, file);
-  } else {
-    openPreviewModal(file, null);
-  }
+//       if (modal && previewImage && previewIframe) {
+//         modal.style.display = 'block';
+//         const isPDF = Stage3Data.ReportName.toLowerCase().endsWith('.pdf');
+//         console.log('Is PDF:', isPDF);
+//         previewIframe.src = isPDF ? Stage3Data.PreviewUrl : '';
+//         previewIframe.style.display = isPDF ? 'block' : 'none';
+
+//         previewImage.src = !isPDF ? Stage3Data.PreviewUrl : '';
+//         previewImage.style.display = !isPDF ? 'block' : 'none';
+//         }
+//       }
+// }
+
+function previewFile() {
+    if (Stage3Data.Report) {
+        const modal = document.getElementById('previewModal');
+        const previewImage = document.getElementById('previewImage') as HTMLImageElement | null;
+        const previewIframe = document.getElementById('previewIframe') as HTMLIFrameElement | null;
+        const previewLink = document.getElementById('previewLink') as HTMLAnchorElement | null; // For doc files
+
+        if (modal && previewImage && previewIframe && previewLink) {
+            modal.style.display = 'block';
+
+            const reportName = Stage3Data.ReportName.toLowerCase();
+            let fileType = '';
+
+            // Determine the file type based on the extension
+            if (reportName.endsWith('.pdf')) {
+                fileType = 'pdf';
+            } else if (reportName.endsWith('.jpg') || reportName.endsWith('.jpeg')) {
+                fileType = 'jpeg';
+            } else if (reportName.endsWith('.png')) {
+                fileType = 'png';
+            } else if (reportName.endsWith('.doc') || reportName.endsWith('.docx')) {
+                fileType = 'doc';
+            }
+
+            const base64Data = Stage3Data.Report;
+            
+            if (fileType === 'pdf') {
+                // Show PDF in iframe
+                previewIframe.src = Stage3Data.Report;
+                previewIframe.style.display = 'block';
+                previewImage.style.display = 'none';
+                previewLink.style.display = 'none';
+            } else if (fileType === 'jpeg' || fileType === 'png') {
+                // Show image in img tag
+                previewImage.src = Stage3Data.Report;
+                previewImage.style.display = 'block';
+                previewIframe.style.display = 'none';
+                previewLink.style.display = 'none';
+            } else if (fileType === 'doc' || fileType === 'docx') {
+                // Provide a download link for DOC files
+                previewLink.href = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Data}`;
+                previewLink.download = Stage3Data.ReportName;
+                previewLink.textContent = 'Download Document';
+                previewLink.style.display = 'block';
+                previewImage.style.display = 'none';
+                previewIframe.style.display = 'none';
+            } else {
+                console.error('Unsupported file type');
+                previewIframe.style.display = 'none';
+                previewImage.style.display = 'none';
+                previewLink.style.display = 'none';
+            }
+        } else {
+            console.error('Modal or preview elements not found in the DOM.');
+        }
+    } else {
+        console.error('No data found in Stage3Data.Report.');
+    }
 }
 
-function downloadFile(file: File | undefined, fileName: string) {
-    if (!file) {
-      console.error('No file to download');
-      return;
+
+// async function downloadFile(url: string | null, fileName: string) {
+//   if (url) {
+//     const a = document.createElement('a');
+//     a.href = url;
+//     a.download = fileName || 'download';
+//     document.body.appendChild(a);
+//     a.click();
+//     document.body.removeChild(a);
+//     URL.revokeObjectURL(url);
+//   } else {
+//     await Swal.fire({
+//         title: 'Oops...',
+//         text: 'No file available for download',
+//         icon: 'warning',
+//         confirmButtonText: 'OK'
+//       });
+//     console.error('No file available for download');
+//   }
+// }
+async function downloadFile(base64DataWithPrefix: string | null, fileName: string) {
+  if (base64DataWithPrefix) {
+    // Extract the base64 content and the MIME type from the data URL prefix
+    const [prefix, base64Data] = base64DataWithPrefix.split(',');
+    let mimeType = '';
+    
+    // Determine the MIME type from the prefix
+    if (prefix.includes('pdf')) {
+      mimeType = 'application/pdf';
+    } else if (prefix.includes('jpeg')) {
+      mimeType = 'image/jpeg';
+    } else if (prefix.includes('png')) {
+      mimeType = 'image/png';
+    } else if (prefix.includes('wordprocessingml.document')) {
+      mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    } else {
+      mimeType = 'application/octet-stream'; // Default binary type
     }
-    const url = URL.createObjectURL(file);
+
+    // Create a Blob from the base64 data
+    const byteCharacters = atob(base64Data); // Decode the base64 data
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+
+    // Create a download link and trigger the download
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName || 'download';
     document.body.appendChild(a);
     a.click();
+
+    // Clean up the URL and remove the anchor element
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  } else {
+    await Swal.fire({
+      title: 'Oops...',
+      text: 'No file available for download',
+      icon: 'warning',
+      confirmButtonText: 'OK'
+    });
+    console.error('No file available for download');
+  }
 }
 
 
@@ -2374,7 +2527,6 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         isTypeSet: box.isTypeSet || false,
         DispatchDate : new Date(box.DispatchDate).toISOString().split('T')[0],
         EstdDeliveryDate : new Date(box.EstdDeliveryDate).toISOString().split('T')[0],
-        attachment: box.attachment ? convertBase64ToFile(box.attachment, box.fileName || 'attachment.jpg', 'image/jpeg') : null
       }));
     }
     stage1Fetched = true;
@@ -2393,6 +2545,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       Stage3Data.ScheduleDate=new Date(data.stage3.installation.ScheduleDate).toISOString().split('T')[0];
       Stage3Data.activeTab=data.stage3.installation.activeTab;
       Stage3Data.ReportName=data.stage3.installation.InstReportName;
+      Stage3Data.PreviewUrl=data.stage3.installation.InstPreviewUrl;
     }
     if (data.stage3.service != null) {
       Stage3Data.SONumber = data.stage3.service.SONumber;
@@ -2405,6 +2558,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       Stage3Data.ScheduleDate=new Date(data.stage3.service.ScheduleDate).toISOString().split('T')[0];
       Stage3Data.activeTab=data.stage3.service.activeTab;
       Stage3Data.ReportName=data.stage3.service.ServiceReportName;
+      Stage3Data.PreviewUrl=data.stage3.installation.ServicePreviewUrl;
     }
     stage3Fetched = true;
   }
@@ -3001,10 +3155,10 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
               class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-600 rounded-md transition-colors duration-200"
             >
               Preview
-                        </button>
+            </button>
                         <button 
                         type="button" 
-                        on:click={() => downloadFileFromUrl(dc.filePreviewUrl, dc.fileName)}
+                        on:click={() => downloadFile(dc.attachment, dc.fileName)}
               class="px-3 py-1 text-sm text-green-600 hover:text-green-800 border border-green-600 rounded-md transition-colors duration-200"
                       >
                         Download
@@ -3104,20 +3258,33 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             
             
             <!-- Preview Modal -->
-            <div id="previewModal" class="modal" style="display:none; position:fixed; z-index:50; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.5);">
-              <div class="modal-content bg-white rounded-lg shadow-xl max-w-4xl mx-auto mt-20 p-6">
-                <div class="flex justify-between items-center mb-4">
-                  <h3 class="text-xl font-semibold text-gray-900">File Preview</h3>
-                  <button type="button" on:click={closePreviewModal} class="text-gray-400 hover:text-gray-500 focus:outline-none">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
+              <div class="modal-content relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+                
+                <!-- Modal Header -->
+                <div class="flex justify-between items-center pb-3">
+                  <p class="text-2xl font-bold">File Preview</p>
+                  <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" on:click={closePreviewModal}>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                   </button>
                 </div>
-                <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
-                <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+                
+                <!-- Modal Body: Image and Iframe for file previews -->
+                <div class="mt-4">
+                  <!-- Image Preview -->
+                  <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
+                  
+                  <!-- PDF Preview -->
+                  <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+            
+                  <!-- Download link for non-previewable files (like .doc or .docx) -->
+                  <a id="previewLink" class="block text-blue-500 underline text-center mt-4" style="display:none;" download>Download Document</a>
+                </div>
+                
               </div>
-              </div>
+            </div>
               </div>
            {/each}
 
@@ -3429,14 +3596,14 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 <span class="text-sm text-gray-600">{Stage3Data.ReportName || 'File uploaded'}</span>
                   <button 
                     type="button" 
-                    on:click={() => previewFile(Stage3Data.Report)}
+                    on:click={() => previewFile()}
                     class="text-blue-600 hover:text-blue-800 underline"
                   >
                     Preview
                   </button>
                   <button 
                     type="button" 
-                    on:click={() => downloadFile(shipment.installationFile, shipment.installationFileName)}
+                    on:click={() => downloadFile(Stage3Data.Report, Stage3Data.ReportName)}
                     class="text-green-600 hover:text-green-800 underline"
                   >
                     Download
@@ -3444,6 +3611,56 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 </div>
               {/if}
             </div>
+            {#if showCustomNameModal}
+                <div class="fixed z-10 inset-0 overflow-y-auto">
+                  <div class="flex items-center justify-center min-h-screen px-4">
+                    <div class="bg-white rounded-lg border border-gray-300 overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+                      <div class="bg-gray-50 px-4 py-3 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                          Enter Custom File Name
+                        </h3>
+                      </div>
+                      <div class="bg-white px-6 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <div class="mt-2">
+                              <input 
+                                type="text" 
+                                bind:value={customFileName}
+                                placeholder="Enter custom file name"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-4 py-2"
+                              >
+                              <span class="text-sm text-gray-500 mt-1">.{customFileExtension}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button 
+                          type="button" 
+                          on:click={() => {
+                            Stage3Data.ReportName = `${customFileName}.${customFileExtension}`;
+                            showCustomNameModal = false;
+                            // Update the file preview
+                            Stage3Data.Report = Stage3Data.Report; // Trigger update
+        
+                          }}
+                          class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          Save
+                        </button>
+                        <button 
+                          type="button" 
+                          on:click={() => showCustomNameModal = false}
+                          class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {/if}
           </div>
         {:else}
           <!-- Service fields -->
@@ -3501,7 +3718,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                     <span class="text-sm text-gray-600">{Stage3Data.ReportName || 'File uploaded'}</span>
                     <button 
                       type="button" 
-                      on:click={() => previewFile(Stage3Data.Report)}
+                      on:click={() => previewFile()}
                       class="text-blue-600 hover:text-blue-800 underline"
                     >
                       Preview
@@ -3522,6 +3739,56 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
               </div>
             </div>
           </div>
+          {#if showCustomNameModal}
+                <div class="fixed z-10 inset-0 overflow-y-auto">
+                  <div class="flex items-center justify-center min-h-screen px-4">
+                    <div class="bg-white rounded-lg border border-gray-300 overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+                      <div class="bg-gray-50 px-4 py-3 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                          Enter Custom File Name
+                        </h3>
+                      </div>
+                      <div class="bg-white px-6 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <div class="mt-2">
+                              <input 
+                                type="text" 
+                                bind:value={customFileName}
+                                placeholder="Enter custom file name"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-4 py-2"
+                              >
+                              <span class="text-sm text-gray-500 mt-1">.{customFileExtension}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button 
+                          type="button" 
+                          on:click={() => {
+                            Stage3Data.ReportName = `${customFileName}.${customFileExtension}`;
+                            showCustomNameModal = false;
+                            // Update the file preview
+                            Stage3Data.Report = Stage3Data.Report; // Trigger update
+        
+                          }}
+                          class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          Save
+                        </button>
+                        <button 
+                          type="button" 
+                          on:click={() => showCustomNameModal = false}
+                          class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {/if}
         {/if}
 
         {#if !shipment.isSaved || shipment.isEditing}
@@ -3562,18 +3829,32 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   <!-- Preview Modal -->
 <div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
   <div class="modal-content relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+    
+    <!-- Modal Header -->
     <div class="flex justify-between items-center pb-3">
       <p class="text-2xl font-bold">File Preview</p>
       <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" on:click={closePreviewModal}>
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        </svg>
       </button>
     </div>
+    
+    <!-- Modal Body: Image and Iframe for file previews -->
     <div class="mt-4">
+      <!-- Image Preview -->
       <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
+      
+      <!-- PDF Preview -->
       <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+
+      <!-- Download link for non-previewable files (like .doc or .docx) -->
+      <a id="previewLink" class="block text-blue-500 underline text-center mt-4" style="display:none;" download>Download Document</a>
     </div>
-    </div>
+    
   </div>
+</div>
+
         
         <!-- Return Pickup toggle button -->
         <button 

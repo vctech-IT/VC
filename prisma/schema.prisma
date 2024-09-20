@@ -113,6 +113,8 @@ model LineItems{
   serialNo     String?
   invoiceNo    String?
   invoiceattachment   String?
+  invoicefilename String?
+  invoicepreviewurl String?
   SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
 
@@ -125,6 +127,7 @@ model Installation {
   InstallationRem   String
   InstReport        String?
   InstReportName    String?
+  InstPreviewUrl    String?
   activeTab         String
   submittedOn       DateTime   @default(now())
   SONo              Stage0     @relation(fields: [SONumber], references: [SONumber])
@@ -139,6 +142,7 @@ model Service {
   ServiceRem        String
   ServiceReport     String?  
   ServiceReportName    String?
+  ServicePreviewUrl    String?
   activeTab         String
   Serticketid       String
   submittedOn       DateTime   @default(now())
@@ -158,6 +162,7 @@ model Stage4{
   Remark          String?
   Attachment      String?
   fileName        String?
+  filePreviewUrl    String?
   SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
 

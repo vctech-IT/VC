@@ -104,11 +104,11 @@ const prisma = new PrismaClient({
           console.log(JSON.stringify(data, null, 2));
           if (data.Ticketid==''){
             result = await prisma.installation.create({
-              data: { SONumber: data.SONumber,engName:data.engName,ScheduleDate:new Date(data.ScheduleDate).toISOString(),MobNo:data.MobNo,VendorName:data.VendorName,InstallationRem:data.Remark,InstReport:data.Report ,activeTab: data.activeTab, InstReportName:data.InstReportName}
+              data: { SONumber: data.SONumber,engName:data.engName,ScheduleDate:new Date(data.ScheduleDate).toISOString(),MobNo:data.MobNo,VendorName:data.VendorName,InstallationRem:data.Remark,InstReport:data.Report ,activeTab: data.activeTab, InstReportName:data.ReportName,InstPreviewUrl:data.PreviewUrl}
           });
           }else if(data.Ticketid){
             result = await prisma.service.create({
-              data: { SONumber: data.SONumber,engName:data.engName,ScheduleDate:new Date(data.ScheduleDate).toISOString(),MobNo:data.MobNo,VendorName:data.VendorName,ServiceRem:data.Remark,ServiceReport:data.Report, Serticketid: data.Ticketid ,activeTab: data.activeTab,ServiceReportName:data.ServiceReportName}
+              data: { SONumber: data.SONumber,engName:data.engName,ScheduleDate:new Date(data.ScheduleDate).toISOString(),MobNo:data.MobNo,VendorName:data.VendorName,ServiceRem:data.Remark,ServiceReport:data.Report, Serticketid: data.Ticketid ,activeTab: data.activeTab,ServiceReportName:data.ReportName,ServicePreviewUrl:data.PreviewUrl}
             });
           }
           if (data.ReturnPickupName){
