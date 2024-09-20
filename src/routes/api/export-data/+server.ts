@@ -1,3 +1,4 @@
+//api/export-data/+server.ts
 import { PrismaClient } from '@prisma/client';
 import { json } from '@sveltejs/kit';
 import * as XLSX from 'xlsx';
@@ -56,7 +57,6 @@ export async function GET() {
         billType: true,
         isTypeSet: true,
         submittedOn: true,
-        // Excluded: attachment, filePreviewUrl
       }
     });
     const lineItems = await prisma.lineItems.findMany({
@@ -74,7 +74,6 @@ export async function GET() {
         isAvailable: true,
         serialNo: true,
         invoiceNo: true,
-        // Excluded: invoiceattachment
       }
     });
     const installation = await prisma.installation.findMany({
@@ -88,7 +87,6 @@ export async function GET() {
         activeTab: true,
         submittedOn: true,
         InstReportName: true,
-        // Excluded: InstReport
       }
     });
     const service = await prisma.service.findMany({
@@ -102,7 +100,6 @@ export async function GET() {
         activeTab: true,
         Serticketid: true,
         submittedOn: true,
-        // Excluded: ServiceReport, ServiceReportName
       }
     });
     const stage4 = await prisma.stage4.findMany({
@@ -118,7 +115,6 @@ export async function GET() {
         DeliveryDate: true,
         Remark: true,
         fileName: true,
-        // Excluded: Attachment
       }
     });
     const stage5 = await prisma.stage5.findMany();
@@ -140,11 +136,47 @@ export async function GET() {
       StageHistory: truncateData(stageHistory)
     };
 
-    // Create workbook and add worksheets
+    // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
-    for (const [sheetName, data] of Object.entries(truncatedData)) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), sheetName);
+    const ws = XLSX.utils.aoa_to_sheet([]);
+
+    let maxRows = 0;
+    let columnIndex = 0;
+
+    for (const [tableName, data] of Object.entries(truncatedData)) {
+      // Add table name
+      XLSX.utils.sheet_add_aoa(ws, [[`Table: ${tableName}`]], { origin: { r: 0, c: columnIndex } });
+
+      if (data.length > 0) {
+        // Add headers
+        const headers = Object.keys(data[0]);
+        XLSX.utils.sheet_add_aoa(ws, [headers], { origin: { r: 1, c: columnIndex } });
+
+        // Add data
+        XLSX.utils.sheet_add_json(ws, data, { origin: { r: 2, c: columnIndex }, skipHeader: true });
+
+        // Update maxRows if this table has more rows
+        maxRows = Math.max(maxRows, data.length + 2); // +2 for table name and header rows
+
+        // Move to the next column, add 2 for spacing
+        columnIndex += headers.length + 2;
+      } else {
+        // If no data, just move to the next column
+        columnIndex += 2;
+      }
     }
+
+    // Set column widths
+    const columnWidths = [];
+    for (let i = 0; i < columnIndex; i++) {
+      columnWidths.push({ wch: 15 }); // Set each column width to 15 characters
+    }
+    ws['!cols'] = columnWidths;
+
+    // Set row height for the first row (table names)
+    ws['!rows'] = [{ hpt: 25 }]; // Set height to 25 points
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Database Export');
 
     // Generate buffer
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });

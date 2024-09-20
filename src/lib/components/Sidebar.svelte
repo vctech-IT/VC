@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { page } from '$app/stores';import { Briefcase, CheckSquare, Calendar, BarChart2, ChevronLeft, ChevronRight, LogOut, User, ReceiptIndianRupee, Truck } from 'lucide-svelte';
+  import { page } from '$app/stores';
+  import { Briefcase, CheckSquare, Calendar, BarChart2, ChevronLeft, ChevronRight, LogOut, User, ReceiptIndianRupee, Truck } from 'lucide-svelte';
   import '../styles/app.css'
   import { applyAction, enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
@@ -25,8 +26,9 @@
 ];
 
 const handleNavigation = (href: string) => {
-    if (href === '/api/export-data') {
+    if (href === 'api/export-data') {
       isLoading.set(true);
+
       fetch(href)
         .then(response => response.blob())
         .then(blob => {
