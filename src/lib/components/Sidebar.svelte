@@ -6,11 +6,14 @@
   import { invalidateAll } from '$app/navigation';
   import { writable } from 'svelte/store';
   import { goto } from '$app/navigation';
+  import ExportModal from '$lib/components/ExportModal.svelte'
+  import Swal from 'sweetalert2';
 
   // Create a store for the loading state
   const isLoading = writable(false);
 
   let isMinimized = false;
+  let showExportModal = false;
 
   const toggleSidebar = () => {
     isMinimized = !isMinimized;
@@ -25,29 +28,58 @@
   { icon: Truck, label: 'Delivery Challans', href: '/deliveryChallan' }
 ];
 
-const handleNavigation = (href: string) => {
+  const handleNavigation = (href: string) => {
     if (href === 'api/export-data') {
-      isLoading.set(true);
-
-      fetch(href)
-        .then(response => response.blob())
-        .then(blob => {
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = url;
-          a.download = 'database_export.xlsx';
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-        })
-        .catch(error => console.error('Error exporting data:', error))
-        .finally(() => isLoading.set(false));
+      showExportModal = true;
     } else {
       isLoading.set(true);
       goto(href).then(() => {
         isLoading.set(false);
       });
+    }
+  };
+
+  const handleExport = async (event: CustomEvent) => {
+    isLoading.set(true);
+    showExportModal = false;
+
+    const { pmName, orderStatus, category, clientName } = event.detail;
+    const queryParams = new URLSearchParams({
+      pmName,
+      orderStatus,
+      category,
+      clientName
+    }).toString();
+
+    try {
+      const response = await fetch(`api/export-data?${queryParams}`);
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = 'database_export.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Export Successful',
+        text: 'Your data has been exported successfully.',
+      });
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Export Failed',
+        text: 'There was an error exporting your data. Please try again.',
+      });
+    } finally {
+      isLoading.set(false);
     }
   };
 </script>
@@ -95,19 +127,19 @@ const handleNavigation = (href: string) => {
           </a>
         </li>
       {/each}
-      {#if $page.data.user.role === 'ADMIN'}
-      <li>
-        <a href="api/export-data"
-          on:click|preventDefault={() => handleNavigation('api/export-data')}
-          class="flex items-center p-2 rounded-md hover:bg-sky-800 transition-colors duration-200 {$page.url.pathname === 'api/export-data' ? 'bg-sky-900' : ''}"
-        >
-          <BarChart2 size={20} />
-          {#if !isMinimized}
-            <span class="ml-3 text-sm">Export Data</span>
-          {/if}
-        </a>
-      </li>
-      {/if}
+  {#if $page.data.user.role === 'ADMIN'}
+    <li>
+      <button
+        on:click={() => handleNavigation('api/export-data')}
+        class="flex items-center p-2 rounded-md hover:bg-sky-800 transition-colors duration-200 w-full text-left"
+      >
+        <BarChart2 size={20} />
+        {#if !isMinimized}
+          <span class="ml-3 text-sm">Export Data</span>
+        {/if}
+      </button>
+    </li>
+  {/if}
       
       {#if $page.data.user}
         <form action="/logout" method="POST" use:enhance={() => {
@@ -141,6 +173,12 @@ const handleNavigation = (href: string) => {
     <div class="loader"></div>
   </div>
 {/if}
+
+<ExportModal 
+  show={showExportModal} 
+  on:close={() => showExportModal = false}
+  on:export={handleExport}
+/>
 
 <style>
   .loader {

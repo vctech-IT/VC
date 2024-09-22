@@ -7,6 +7,8 @@
   import type { ActionData } from './$types';
   import "$lib/styles/app.css"
   import { enhance } from '$app/forms';
+  import Swal from 'sweetalert2';
+  import { goto } from '$app/navigation';
 
   export let form: ActionData;
 
@@ -45,6 +47,21 @@
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     return re.test(email);
   }
+
+    const handleSubmit = () => {
+    return async ({ result }) => {
+      if (result.type === 'success') {
+        await Swal.fire({
+          title: 'Registration Successful!',
+          text: 'You have successfully registered. Redirecting to login...',
+          icon: 'success',
+          timer: 3000,
+          showConfirmButton: false
+        });
+        goto('/login');
+      }
+    };
+  };
 </script>
 
 <div class="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -75,7 +92,7 @@
         <h1 class="text-3xl font-bold text-gray-900">Create an Account</h1>
       </div>
 
-      <form action="?/register" method="POST" use:enhance class="space-y-3">
+      <form action="?/register" method="POST" use:enhance={handleSubmit} class="space-y-3">
         <div>
           <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
           <input 

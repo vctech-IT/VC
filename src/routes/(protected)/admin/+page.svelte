@@ -3,7 +3,7 @@
   import { fade, slide, scale } from 'svelte/transition';
   import { invalidate } from '$app/navigation';
   import type { PageData } from './$types';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { Toaster, toast } from 'svelte-french-toast';
   import ClientOnlyTooltip from '$lib/components/ClientOnlyTooltip.svelte';
 
@@ -146,6 +146,57 @@
       showNotification = false;
     }
   }
+
+  function calculateLoggedInTime(lastLogin: Date | null, lastLogout: Date | null): string {
+    if (!lastLogin) return 'Never logged in';
+    
+    const loginTime = new Date(lastLogin).getTime();
+    const logoutTime = lastLogout ? new Date(lastLogout).getTime() : Date.now();
+    
+    if (loginTime > logoutTime) return 'Logged In';
+
+    const diffInSeconds = Math.floor((logoutTime - loginTime) / 1000);
+
+    if (diffInSeconds < 60) return `${diffInSeconds} second(s)`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minute(s)`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hour(s)`;
+    return `${Math.floor(diffInSeconds / 86400)} day(s)`;
+  }
+
+  function timeSinceLastLogout(date: Date | null): string {
+    if (!date) return 'N/A';
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - new Date(date).getTime()) / 1000);
+
+    if (diffInSeconds < 0) return 'Invalid logout time';
+    if (diffInSeconds < 60) return `${diffInSeconds} second(s) ago`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minute(s) ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hour(s) ago`;
+    return `${Math.floor(diffInSeconds / 86400)} day(s) ago`;
+  }
+
+  let intervalId: number;
+
+  onMount(() => {
+      intervalId = setInterval(() => {
+      approvedUsers = approvedUsers.map(user => ({
+        ...user,
+        loggedInTime: calculateLoggedInTime(user.lastLogin, user.lastLogout),
+        timeSinceLastLogout: timeSinceLastLogout(user.lastLogout)
+      }));
+    }, 1000);
+
+    if (pendingUsersCount > 0) {
+      toast.success(`There are ${pendingUsersCount} pending user${pendingUsersCount > 1 ? 's' : ''} waiting for approval.`, {
+        duration: 5000,
+        position: 'top-right',
+      });
+    }
+  });
+
+  onDestroy(() => {
+    clearInterval(intervalId);
+  });
 </script>
 
 <Toaster />
@@ -284,6 +335,10 @@
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logged in Time</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Logout</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Since Last Logout</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -318,6 +373,18 @@
                   {/if}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(user.createdAt)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.lastLogin ? formatDate(user.lastLogin) : 'Never logged in'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.loggedInTime}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.lastLogout ? formatDate(user.lastLogout) : 'N/A'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.timeSinceLastLogout}
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div class="flex flex-col sm:flex-row gap-2">
                     {#if editingUser && editingUser.id === user.id}

@@ -20,11 +20,12 @@ export const handle: Handle = async ({ event, resolve }) => {
       phoneNo: true,
       role: { select: { name: true } },
       createdAt: true,
-      image: true  // Add this line to select the user's image
+      image: true,
+      lastLogin: true
     }
   });
 
-  // if user exists set events.locals
+  // if user exists set events.locals and update lastLogin
   if (user) {
     event.locals.user = {
       id: user.id,
@@ -33,8 +34,24 @@ export const handle: Handle = async ({ event, resolve }) => {
       phoneNo: user.phoneNo,
       role: user.role.name,
       createdAt: user.createdAt,
-      image: user.image  // Add this line to include the image in the locals object
+      image: user.image,
+      lastLogin: user.lastLogin,
+      lastLogout: user.lastLogout
     };
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    if (!user.lastLogin || user.lastLogin < fiveMinutesAgo) {
+      await db.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() }
+      });
+    }
+
+    // Update lastLogin
+    await db.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
+    });
   }
 
   // load page as normal

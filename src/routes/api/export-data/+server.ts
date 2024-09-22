@@ -1,4 +1,3 @@
-//api/export-data/+server.ts
 import { PrismaClient } from '@prisma/client';
 import { json } from '@sveltejs/kit';
 import * as XLSX from 'xlsx';
@@ -21,9 +20,14 @@ function truncateData(data: any[]): any[] {
   });
 }
 
-export async function GET() {
+export async function GET({ url }) {
   try {
-    // Fetch data from all tables, excluding specific fields
+    const pmName = url.searchParams.get('pmName') || undefined;
+    const orderStatus = url.searchParams.get('orderStatus') || undefined;
+    const category = url.searchParams.get('category') || undefined;
+    const clientName = url.searchParams.get('clientName') || undefined;
+
+    // Fetch data from all tables, applying filters where applicable
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -38,10 +42,16 @@ export async function GET() {
         createdAt: true,
         updatedAt: true,
         roleId: true
-      }
+      },
+      where: pmName ? { username: pmName } : undefined
     });
     const roles = await prisma.roles.findMany();
-    const stage0 = await prisma.stage0.findMany();
+    const stage0 = await prisma.stage0.findMany({
+      where: {
+        ...(clientName && { clientName }),
+        ...(category && { category })
+      }
+    });
     const stage1 = await prisma.stage1.findMany({
       select: {
         DCid: true,
@@ -57,7 +67,8 @@ export async function GET() {
         billType: true,
         isTypeSet: true,
         submittedOn: true,
-      }
+      },
+      where: orderStatus ? { status: orderStatus } : undefined
     });
     const lineItems = await prisma.lineItems.findMany({
       select: {
@@ -74,7 +85,8 @@ export async function GET() {
         isAvailable: true,
         serialNo: true,
         invoiceNo: true,
-      }
+      },
+      where: orderStatus ? { status: orderStatus } : undefined
     });
     const installation = await prisma.installation.findMany({
       select: {

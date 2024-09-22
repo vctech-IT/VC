@@ -21,7 +21,22 @@ export const load: PageServerLoad = async ({ locals, depends }) => {
 
   const approvedUsers = await prisma.user.findMany({
     where: { isApproved: true },
-    include: { role: true }
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      phoneNo: true,
+      image: true,
+      createdAt: true,
+      lastLogin: true,
+      lastLogout: true,
+      role: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
   });
 
   const pendingUsersCount = await prisma.user.count({
@@ -107,7 +122,15 @@ export const actions: Actions = {
     return { success: true };
   },
 
-  logout: async ({ cookies }) => {
+  logout: async ({ cookies, locals }) => {
+    if (locals.user) {
+      // Record the last logout time
+      await prisma.user.update({
+        where: { id: locals.user.id },
+        data: { lastLogout: new Date() }
+      });
+    }
+
     cookies.set('session', '', {
       path: '/',
       expires: new Date(0),

@@ -15,7 +15,9 @@ import { FontAwesomeIcon } from '@fortawesome/svelte-fontawesome';
 import { goto } from '$app/navigation';
 import { fade, fly } from 'svelte/transition';
 import { quintOut } from 'svelte/easing';
-import { ChevronDown, Filter } from 'lucide-svelte';
+import {  Filter } from 'lucide-svelte';
+import { ArrowUpDown } from 'lucide-svelte';
+import { ChevronDown, ChevronUp, Search } from 'lucide-svelte';
 
 let totalOrders = 0;
 let activeTab = 0;
@@ -40,6 +42,44 @@ let selectedCategory: string | null = null;
 let pmNames: string[] = [];
 let selectedPM: string = 'all';
 
+interface OrderDetail {
+  SONumber: string;
+  SOId: string;
+  clientName: string;
+  SOCategory: string;
+}
+
+let searchTerm = '';
+let sortColumn = 'SONumber';
+let sortDirection: 'asc' | 'desc' = 'asc';
+let filterCategory = 'All';
+
+$: filteredAndSortedOrders = modalContent.orderDetails
+  ? modalContent.orderDetails
+      .filter(order => 
+        (filterCategory === 'All' || order.SOCategory === filterCategory) &&
+        (order.SONumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         order.SOCategory.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+      .sort((a, b) => {
+        const aValue = a[sortColumn].toLowerCase();
+        const bValue = b[sortColumn].toLowerCase();
+        const compareResult = aValue.localeCompare(bValue);
+        return sortDirection === 'asc' ? compareResult : -compareResult;
+      })
+  : [];
+
+$: categories = ['All', ...new Set(modalContent.orderDetails.map(order => order.SOCategory))];
+
+function toggleSort(column: string) {
+  if (sortColumn === column) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn = column;
+    sortDirection = 'asc';
+  }
+}
 
 let agingData: {
   summary: { [key: number]: { onTime: number; overdue: number } };
@@ -76,7 +116,8 @@ interface ModalContent {
     scheduleDate: Date;
     vendorName: string;
   }>;
-  agingData: { [key: string]: any }
+  agingData: { [key: string]: any },
+  orderDetails: OrderDetail[];
 }
 
 let modalContent: ModalContent = {
@@ -88,7 +129,8 @@ let modalContent: ModalContent = {
     byCategory: {}
   },
   soNumbers: [],
-  agingData: {}
+  agingData: {},
+  orderDetails: []
 
 };
 
@@ -144,25 +186,36 @@ function handleOrderStatusChange(event: Event) {
 
 function processInstallationData(details: any[], totalInstallations: number): ModalContent {
   let totalSum = 0;
-  let byClient: { [key: string]: { orders: number; sum: number } } = {};
-  let byCategory: { [key: string]: { orders: number; sum: number } } = {};
+  let byClient: { [key: string]: { orders: number; sum: number; soNumbers: string[] } } = {};
+  let byCategory: { [key: string]: { orders: number; sum: number; soNumbers: string[] } } = {};
   let soNumbers: Array<{ SONumber: string; SOId: string }> = [];
+  let orderDetails: OrderDetail[] = [];
 
   for (let installation of details) {
     totalSum += installation.cost;
     soNumbers.push({ SONumber: installation.SONumber, SOId: installation.SOId });
 
     if (!byClient[installation.clientName]) {
-      byClient[installation.clientName] = { orders: 0, sum: 0 };
+      byClient[installation.clientName] = { orders: 0, sum: 0, soNumbers: [] };
     }
     byClient[installation.clientName].orders++;
     byClient[installation.clientName].sum += installation.cost;
+    byClient[installation.clientName].soNumbers.push(installation.SONumber);
 
     if (!byCategory[installation.category]) {
-      byCategory[installation.category] = { orders: 0, sum: 0 };
+      byCategory[installation.category] = { orders: 0, sum: 0, soNumbers: [] };
     }
     byCategory[installation.category].orders++;
     byCategory[installation.category].sum += installation.cost;
+    byCategory[installation.category].soNumbers.push(installation.SONumber);
+
+    // Add to orderDetails
+    orderDetails.push({
+      SONumber: installation.SONumber,
+      SOId: installation.SOId,
+      clientName: installation.clientName,
+      SOCategory: installation.category
+    });
   }
 
   return {
@@ -171,14 +224,17 @@ function processInstallationData(details: any[], totalInstallations: number): Mo
     totalSum,
     categorizedData: { byClient, byCategory },
     soNumbers,
+    agingData: agingData.details,
+    orderDetails
   };
 }
 
 function processServiceData(details: any[], totalServices: number): ModalContent {
   let totalSum = 0;
-  let byClient: { [key: string]: { orders: number; sum: number } } = {};
-  let byCategory: { [key: string]: { orders: number; sum: number } } = {};
+  let byClient: { [key: string]: { orders: number; sum: number; soNumbers: string[] } } = {};
+  let byCategory: { [key: string]: { orders: number; sum: number; soNumbers: string[] } } = {};
   let soNumbers: Array<{ SONumber: string; SOId: string }> = [];
+  let orderDetails: OrderDetail[] = [];
 
   for (let service of details) {
     totalSum += service.cost;
@@ -186,17 +242,27 @@ function processServiceData(details: any[], totalServices: number): ModalContent
 
     // Process by client
     if (!byClient[service.clientName]) {
-      byClient[service.clientName] = { orders: 0, sum: 0 };
+      byClient[service.clientName] = { orders: 0, sum: 0, soNumbers: [] };
     }
     byClient[service.clientName].orders++;
     byClient[service.clientName].sum += service.cost;
+    byClient[service.clientName].soNumbers.push(service.SONumber);
 
     // Process by category
     if (!byCategory[service.category]) {
-      byCategory[service.category] = { orders: 0, sum: 0 };
+      byCategory[service.category] = { orders: 0, sum: 0, soNumbers: [] };
     }
     byCategory[service.category].orders++;
     byCategory[service.category].sum += service.cost;
+    byCategory[service.category].soNumbers.push(service.SONumber);
+
+    // Add to orderDetails
+    orderDetails.push({
+      SONumber: service.SONumber,
+      SOId: service.SOId,
+      clientName: service.clientName,
+      SOCategory: service.category
+    });
   }
 
   return {
@@ -205,16 +271,8 @@ function processServiceData(details: any[], totalServices: number): ModalContent
     totalSum,
     categorizedData: { byClient, byCategory },
     soNumbers,
-    details: details.map(service => ({
-      SONumber: service.SONumber,
-      SOId: service.SOId,
-      clientName: service.clientName,
-      category: service.category,
-      cost: service.cost,
-      engName: service.engName,
-      scheduleDate: service.scheduleDate,
-      vendorName: service.vendorName
-    }))
+    agingData: agingData.details,
+    orderDetails
   };
 }
 
@@ -271,6 +329,7 @@ async function handleCardClick(event: any) {
       totalSum: 0, 
       categorizedData: { byClient: {}, byCategory: {} },
       soNumbers: [] ,
+      agingData: agingData.details
     };
   }
   showModal = true;
@@ -303,13 +362,21 @@ function processModalData(orders: any[], title: string, totalOrders: number): Mo
     byCategory[order.SOCategory].soNumbers.push(order.SONumber);
   }
 
+    const orderDetails: OrderDetail[] = orders.map(order => ({
+    SONumber: order.SONumber,
+    SOId: order.SOId,
+    clientName: order.clientName,
+    SOCategory: order.SOCategory
+  }));
+
   return {
     title,
     totalOrders,
     totalSum,
     categorizedData: { byClient, byCategory },
     soNumbers,
-    agingData: agingData.details.filter(item => item.stage === parseInt(title.split(' ')[1]))
+    agingData: agingData.details,
+    orderDetails
   };
 }
 
@@ -533,7 +600,7 @@ function handlePMFilterChange() {
     </svelte:fragment>
       
     <div class="bg-white p-4">
-      <Tabs tabs={['By Client', 'By Category', 'SO Numbers']} bind:activeTab>
+      <Tabs tabs={['By Client', 'By Category', 'SO Numbers', 'Detailed View']} bind:activeTab>
         <div class="overflow-x-auto">
           <div class="inline-block min-w-full align-middle">
           {#if activeTab === 0}
@@ -564,7 +631,7 @@ function handlePMFilterChange() {
                               {@const agingInfo = modalContent.agingData.find(item => item.SONumber === soNumber)}
                               {#if soData}
                                 <div 
-                                  class="p-2 rounded text-xs font-medium cursor-pointer transition-colors duration-150 {getAgingColor(agingInfo?.ageInHours || 0)}"
+                                  class="p-2 rounded text-xs font-medium cursor-pointer transition-colors duration-150 bg-blue-400 text-white"
                                   on:click={() => handleSOClick(soData.SOId)}
                                 >
                                   {soNumber}
@@ -612,7 +679,7 @@ function handlePMFilterChange() {
                               {@const agingInfo = modalContent.agingData.find(item => item.SONumber === soNumber)}
                               {#if soData}
                                 <div 
-                                  class="p-2 rounded text-xs font-medium cursor-pointer transition-colors duration-150 {getAgingColor(agingInfo?.ageInHours || 0)}"
+                                  class="p-2 rounded text-xs font-medium cursor-pointer transition-colors duration-150 bg-blue-400 text-white"
                                   on:click={() => handleSOClick(soData.SOId)}
                                 >
                                   {soNumber}
@@ -632,7 +699,7 @@ function handlePMFilterChange() {
                 </tbody>
               </table>
             </div>
-          {:else}
+          {:else if activeTab === 2}
               <div class="bg-white rounded-lg shadow-sm p-4">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">SO Numbers</h3>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -652,7 +719,61 @@ function handlePMFilterChange() {
                   {/each}
                 </div>
               </div>
-            {/if}
+          {:else if activeTab === 3}
+            <div class="mb-4 m-1 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0 sm:space-x-2">
+              <div class="relative w-full sm:w-auto">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  bind:value={searchTerm}
+                  class="pl-8 pr-4 py-1.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full"
+                />
+                <Search class="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              </div>
+              <select
+                bind:value={filterCategory}
+                class="px-3 py-1.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none pr-8 bg-white"
+              >
+                {#each categories as category}
+                  <option value={category}>{category}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="overflow-hidden border border-gray-200 shadow sm:rounded-lg">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    {#each ['SONumber', 'Client Name', 'Category'] as column}
+                      <th 
+                        scope="col" 
+                        class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        on:click={() => toggleSort(column === 'Client Name' ? 'clientName' : column)}
+                      >
+                        <div class="flex items-center space-x-1">
+                          <span>{column}</span>
+                          <div class="flex flex-col">
+                            <ChevronUp size={12} class={sortColumn === (column === 'Client Name' ? 'clientName' : column) && sortDirection === 'asc' ? 'text-blue-500' : 'text-gray-300'} />
+                            <ChevronDown size={12} class={sortColumn === (column === 'Client Name' ? 'clientName' : column) && sortDirection === 'desc' ? 'text-blue-500' : 'text-gray-300'} />
+                          </div>
+                        </div>
+                      </th>
+                    {/each}
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  {#each filteredAndSortedOrders as order}
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
+                      <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-blue-600 cursor-pointer" on:click={() => handleSOClick(order.SOId)}>
+                        {order.SONumber}
+                      </td>
+                      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{order.clientName}</td>
+                      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{order.SOCategory}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
           </div>
         </div>
       </Tabs>

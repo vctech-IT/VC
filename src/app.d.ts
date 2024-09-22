@@ -14,6 +14,8 @@ declare global {
 					image: string
 					status: string
 					verificationToken: string;
+					lastLogin: Date;
+					lastLogout: Date
 				}
 			}
 		interface PageData {
@@ -27,6 +29,8 @@ declare global {
 				image: string;
 				status: string;
 				verificationToken: string;
+				lastLogin: Date;
+				lastLogout: Date
 			}
 		}
 		// interface PageState {}
