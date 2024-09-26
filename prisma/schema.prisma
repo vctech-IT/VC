@@ -116,7 +116,6 @@ model LineItems{
   invoiceNo    String?
   invoiceattachment   String?
   invoicefilename String?
-  invoicepreviewurl String?
   SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
 
@@ -165,17 +164,21 @@ model Stage4{
   Remark          String?
   Attachment      String?
   fileName        String?
-  filePreviewUrl    String?
   SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
 
 model Stage5{
   SONumber      String     @id @map("_id")
-  accStatus     String     
-  accountRemark String?
+  accStatus     String   
+  rejected1     Boolean   
+  accRemark    String
+  isDataSaved1 Boolean
+  isEditing1 Boolean
   retaccStatus     String?     
-  retrejectionRemark  String?
-  retaccountRemark String?
+  rejected2     Boolean?
+  retaccRemark  String?
+  isDataSaved2 Boolean?
+  isEditing2 Boolean?
   SONo            Stage0     @relation(fields: [SONumber], references: [SONumber])
 }
 

@@ -35,7 +35,7 @@ async function fetchPreviousStagesData(currentStage: number, salesOrder: SalesOr
           orderBy: { createdAt: 'desc' }
         });
         if (stage0Data) data.stage0 = stage0Data;
-        break;
+      
       case 1:
         if (data.stage0) {
           const lineItems = await prisma.lineItems.findMany({
@@ -46,10 +46,10 @@ async function fetchPreviousStagesData(currentStage: number, salesOrder: SalesOr
           });
           data.stage1 = { lineItems, dcBoxes };
         }
-        break;
+        
       case 2:
         // Fetch stage 2 data if needed
-        break;
+        
       case 3:
         if (data.stage1) {
           const installation = await prisma.installation.findFirst({
@@ -58,9 +58,12 @@ async function fetchPreviousStagesData(currentStage: number, salesOrder: SalesOr
           const service = await prisma.service.findFirst({
             where: { SONumber: data.stage0.SONumber }
           });
-          data.stage3 = { installation, service };
+          const stage4Data = await prisma.stage4.findFirst({
+            where: { SONumber: data.stage0.SONumber }
+          });
+          data.stage3 = { installation, service, stage4Data };
         }
-        break;
+      
       case 4:
         if (data.stage3) {
           const stage4Data = await prisma.stage4.findFirst({
@@ -68,9 +71,15 @@ async function fetchPreviousStagesData(currentStage: number, salesOrder: SalesOr
           });
           data.stage4 = stage4Data;
         }
-        break;
-    }
+      case 5: 
+        if (data.stage3) {
+          const stage5Data = await prisma.stage5.findFirst({
+            where: { SONumber: data.stage0.SONumber }
+          });
+          data.stage5 = stage5Data;
+      }
+      
   }
 
   return data;
-}
+}}

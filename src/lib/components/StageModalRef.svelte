@@ -94,6 +94,7 @@ onMount(async () => {
     console.log(" dc DATA- ", dcBoxes);
     console.log(" 3 DATA- ", Stage3Data);
     console.log(" 4 DATA- ", Stage4Data);
+    console.log(" 5 DATA- ", Stage5Data);
     console.log("hey");
     notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available')
   }})
@@ -165,6 +166,7 @@ onMount(async () => {
     };
     Stage4Data = {
     SONumber: salesOrder.salesorder_number,
+    returnPickupRequested : false,
     ReturnPickupName : '',
     ReturnPickupMobile : '',
     ReturnPickupRemark : '',
@@ -186,13 +188,15 @@ onMount(async () => {
   Stage5Data = {
     SONumber: salesOrder.salesorder_number,
     accStatus:'', 
-    rejected :'',
-    rejectionRemark:'',
-    accountRemark:'',
+    rejected1 : null,
+    accRemark:'',
     retaccStatus:"",   
-    retrejected:'',
-    retrejectionRemark:'',
-    retaccountRemark:''
+    rejected2: null,
+    retaccRemark:'',
+    isDataSaved1: false,
+    isEditing1: true,
+    isDataSaved2: false,
+    isEditing2: true
   }
 }
 if ( currentStage === 1) {
@@ -255,6 +259,7 @@ if ( currentStage === 1) {
     };
     Stage4Data = {
     SONumber: salesOrder.salesorder_number,
+    returnPickupRequested : false,
     ReturnPickupName : '',
     ReturnPickupMobile : '',
     ReturnPickupRemark : '',
@@ -276,19 +281,19 @@ if ( currentStage === 1) {
   Stage5Data = {
     SONumber: salesOrder.salesorder_number,
     accStatus:'', 
-    rejected :'',
-    rejectionRemark:'',
-    accountRemark:'',
+    rejected1 : null,
+    accRemark:'',
     retaccStatus:"",   
-    retrejected:'',
-    retrejectionRemark:'',
-    retaccountRemark:''
+    rejected2: null,
+    retaccRemark:'',
+    isDataSaved1: false,
+    isEditing1: true,
+    isDataSaved2: false,
+    isEditing2: true
   }
 }
 if ( currentStage === 2) {
   currentStage = moveStage= 2;
-    
-    console.log("notAvailableItems-",notAvailableItems);
     Stage3Data = {
       SONumber: salesOrder.salesorder_number,
       engName: '',
@@ -303,6 +308,7 @@ if ( currentStage === 2) {
     };
     Stage4Data = {
     SONumber: salesOrder.salesorder_number,
+    returnPickupRequested : false,
     ReturnPickupName : '',
     ReturnPickupMobile : '',
     ReturnPickupRemark : '',
@@ -324,13 +330,15 @@ if ( currentStage === 2) {
   Stage5Data = {
     SONumber: salesOrder.salesorder_number,
     accStatus:'', 
-    rejected :'',
-    rejectionRemark:'',
-    accountRemark:'',
+    rejected1 : null,
+    accRemark:'',
     retaccStatus:"",   
-    retrejected:'',
-    retrejectionRemark:'',
-    retaccountRemark:''
+    rejected2: null,
+    retaccRemark:'',
+    isDataSaved1: false,
+    isEditing1: true,
+    isDataSaved2: false,
+    isEditing2: true
   }
 }
 if ( currentStage === 3) {
@@ -349,6 +357,7 @@ if ( currentStage === 3) {
     };
     Stage4Data = {
     SONumber: salesOrder.salesorder_number,
+    returnPickupRequested : false,
     ReturnPickupName : '',
     ReturnPickupMobile : '',
     ReturnPickupRemark : '',
@@ -370,22 +379,21 @@ if ( currentStage === 3) {
   Stage5Data = {
     SONumber: salesOrder.salesorder_number,
     accStatus:'', 
-    rejected :'',
-    rejectionRemark:'',
-    accountRemark:'',
+    rejected1 : null,
+    accRemark:'',
     retaccStatus:"",   
-    retrejected:'',
-    retrejectionRemark:'',
-    retaccountRemark:''
+    rejected2: null,
+    retaccRemark:'',
+    isDataSaved1: false,
+    isEditing1: true,
+    isDataSaved2: false,
+    isEditing2: true
   }
 }
 if ( currentStage === 4) {
   currentStage = moveStage= 4;
   Stage4Data = {
     SONumber: salesOrder.salesorder_number,
-    ReturnPickupName : '',
-    ReturnPickupMobile : '',
-    ReturnPickupRemark : '',
     DCNumber:'',
     validatedData: {
           deliverychallan_number: '',
@@ -404,27 +412,34 @@ if ( currentStage === 4) {
   Stage5Data = {
     SONumber: salesOrder.salesorder_number,
     accStatus:'', 
-    rejected :'',
-    rejectionRemark:'',
-    accountRemark:'',
+    rejected1 : null,
+    accRemark:'',
     retaccStatus:"",   
-    retrejected:'',
-    retrejectionRemark:'',
-    retaccountRemark:''
+    rejected2: null,
+    retaccRemark:'',
+    isDataSaved1: false,
+    isEditing1: true,
+    isDataSaved2: false,
+    isEditing2: true
   }
 }
 if ( currentStage === 5) {
   currentStage = moveStage= 5;
+  Stage4Data = {
+    returnPickupRequested : false
+  }
   Stage5Data = {
     SONumber: salesOrder.salesorder_number,
     accStatus:'', 
-    rejected :'',
-    rejectionRemark:'',
-    accountRemark:'',
+    rejected1 : null,
+    accRemark:'',
     retaccStatus:"",   
-    retrejected:'',
-    retrejectionRemark:'',
-    retaccountRemark:''
+    rejected2: null,
+    retaccRemark:'',
+    isDataSaved1: false,
+    isEditing1: true,
+    isDataSaved2: false,
+    isEditing2: true
   }
 }
 
@@ -670,16 +685,16 @@ async function handleSubmit(event: Event) {
         .filter(item => item.isSaved)
         .every(item => item.accountStatus && item.accountRemark.trim());
       
-      if (allItemsHaveStatus) {
+      // if (allItemsHaveStatus) {
         showConfirmationPopup = true;
-      } else {
-        await Swal.fire({
-        title: 'Oops...',
-        text: 'Please select a status and fill up the remark for all items.',
-        icon: 'warning',
-        confirmButtonText: 'OK'
-      });
-      }
+      // } else {
+      //   await Swal.fire({
+      //   title: 'Oops...',
+      //   text: 'Please select a status and fill up the remark for all items.',
+      //   icon: 'warning',
+      //   confirmButtonText: 'OK'
+      // });
+      // }
     } else {
       showConfirmationPopup = true;
     }
@@ -840,11 +855,11 @@ async function handleSubmit(event: Event) {
     }
     break;
     case (stageData[4].visible ? 5 : 4):
-    const approvedItems = [...shipments, returnPickup]
-      .filter(item => item.isSaved && item.accountStatus === 'approved')
+    const approvedItems = [Stage5Data]
+      .filter(item => item.isSaved && item.accStatus === 'approved')
       .map(item => item.name || `Shipment ${item.index + 1}`);
-    const rejectedItems = [...shipments, returnPickup]
-      .filter(item => item.isSaved && item.accountStatus === 'rejected')
+    const rejectedItems = [Stage5Data]
+      .filter(item => item.isSaved && item.accStatus === 'rejected')
       .map(item => item.name || `Shipment ${item.index + 1}`);
     
     if (approvedItems.length > 0) {
@@ -955,6 +970,7 @@ function handleEdit(index: number) {
   return lineItemsWithStatus.every(item => item.status !== '') && isCurrentDCFilled();
 }
 
+let isSaveDisabled = false; 
   async function handleSave() {
     const currentDCIndex = dcBoxes.length - 1;
     const currentDC = dcBoxes[currentDCIndex];
@@ -968,7 +984,7 @@ function handleEdit(index: number) {
       });
       return;
     }
-
+    isSaveDisabled = true;
     // If all items are Not Available, handle it differently
   if (allItemsNotAvailable) {
     lineItemsWithStatus.forEach(item => {
@@ -1699,7 +1715,8 @@ function cancelEdit(index: number) {
   // and restore it here
   shipments = [...shipments]; // Trigger reactivity
 }
-  async function saveShipment(index: number) {
+let isSave3Disabled = false;
+async function saveShipment(index: number) {
   const shipment = shipments[index];
   if (isShipmentValid(shipment)) {
     shipment.isSaved = true;
@@ -1709,7 +1726,7 @@ function cancelEdit(index: number) {
     shipment.accountRemark = '';
     alert(`${shipment.activeTab === 'installation' ? 'Installation' : 'Service'} details ${shipment.isEditing ? 'updated' : 'saved'} successfully.`);
     console.log('Saved shipment:', shipment);
-
+    isSave3Disabled=true;
     // Update the Share with Account stage
     updateShareWithAccountStage();
   
@@ -1989,7 +2006,6 @@ let returnPickup = {
     approvalRemark: '',
   };
 
-  let returnPickupRequested = false;
   let showReturnPickupConfirmation = false;
   let showConfirmationPopup = false;
   let returnPickupDetailsSaved = false;
@@ -1998,15 +2014,15 @@ let returnPickup = {
   let returnPickupRemark = '';
 
   function toggleReturnPickup() {
-    if (returnPickupRequested && !returnPickupDetailsSaved) {
+    if (Stage4Data.returnPickupRequested && !returnPickupDetailsSaved) {
       // If cancelling and details are not saved, reset the state
-      returnPickupRequested = false;
+      Stage4Data.returnPickupRequested = false;
       returnPickupName = '';
       returnPickupMobile = '';
       returnPickupRemark = '';
-    } else if (!returnPickupRequested) {
+    } else if (!Stage4Data.returnPickupRequested) {
       // If requesting, show the details form
-      returnPickupRequested = true;
+      Stage4Data.returnPickupRequested = true;
     }
 }
 
@@ -2094,11 +2110,61 @@ async function confirmReturnPickup() {
 }
 
 function previewReturnPickupFile() {
-  if (returnPickup.file) {
-    openPreviewModal(returnPickup.file, null);
-  } else if (returnPickup.filePreviewUrl) {
-    openPreviewModal(null, returnPickup.filePreviewUrl);
-  }
+  if (Stage4Data.Attachment) {
+        const modal = document.getElementById('previewModal');
+        const previewImage = document.getElementById('previewImage') as HTMLImageElement | null;
+        const previewIframe = document.getElementById('previewIframe') as HTMLIFrameElement | null;
+        const previewLink = document.getElementById('previewLink') as HTMLAnchorElement | null; // For doc files
+
+        if (modal && previewImage && previewIframe && previewLink) {
+            modal.style.display = 'block';
+
+            const reportName = Stage4Data.fileName.toLowerCase();
+            let fileType = '';
+
+            // Determine the file type based on the extension
+            if (reportName.endsWith('.pdf')) {
+                fileType = 'pdf';
+            } else if (reportName.endsWith('.jpg') || reportName.endsWith('.jpeg')) {
+                fileType = 'jpeg';
+            } else if (reportName.endsWith('.png')) {
+                fileType = 'png';
+            } else if (reportName.endsWith('.doc') || reportName.endsWith('.docx')) {
+                fileType = 'doc';
+            }
+            
+            if (fileType === 'pdf') {
+                // Show PDF in iframe
+                previewIframe.src = Stage4Data.Attachment;
+                previewIframe.style.display = 'block';
+                previewImage.style.display = 'none';
+                previewLink.style.display = 'none';
+            } else if (fileType === 'jpeg' || fileType === 'png') {
+                // Show image in img tag
+                previewImage.src = Stage4Data.Attachment;
+                previewImage.style.display = 'block';
+                previewIframe.style.display = 'none';
+                previewLink.style.display = 'none';
+            } else if (fileType === 'doc' || fileType === 'docx') {
+                // Provide a download link for DOC files
+                previewLink.href = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Data}`;
+                previewLink.download = Stage4Data.fileName;
+                previewLink.textContent = 'Download Document';
+                previewLink.style.display = 'block';
+                previewImage.style.display = 'none';
+                previewIframe.style.display = 'none';
+            } else {
+                console.error('Unsupported file type');
+                previewIframe.style.display = 'none';
+                previewImage.style.display = 'none';
+                previewLink.style.display = 'none';
+            }
+        } else {
+            console.error('Modal or preview elements not found in the DOM.');
+        }
+    } else {
+        console.error('No data found in Stage4Data.Attachment.');
+    }
 }
 
 function handleReturnPickupMobileInput(event: Event) {
@@ -2111,10 +2177,18 @@ function handleReturnPickupMobileInput(event: Event) {
   const file = input.files?.[0];
   
   if (file && !returnPickup.isSaved) {
+    showCustomNameModal = true;
+    const extension = file.name.split('.').pop() || '';
+    customFileName = file.name.replace(`.${extension}`, '');
+    customFileExtension = extension;
+    try {
       const base64String = await convertFileToBase64(file);
       Stage4Data.Attachment= base64String;
       Stage4Data.fileName = file.name;
       returnPickup = {...returnPickup}; // Trigger reactivity
+    }catch (error) {
+      console.error('Error converting file to base64:', error);
+    }
     }
     lastSavedTimes[currentStage] = getCurrentDateTime();
   }
@@ -2156,7 +2230,7 @@ async function saveReturnPickup() {
 
   function formatAmountreturn(event: Event) {
   const input = event.target as HTMLInputElement;
-  let value = input.value.replace(/[^\d.]/g, '');
+  let value = input.value.replace(/[^\d.]/g, '');  // Remove any non-numeric characters except the decimal point
   
   // Allow only one decimal point
   const parts = value.split('.');
@@ -2175,10 +2249,16 @@ async function saveReturnPickup() {
     formatted += '.' + decimalPart;
   }
 
-  // Update the input value and the returnPickup object
+  // Update the input value (with commas) for display
   input.value = formatted;
-    returnPickup.dcAmount = formatted;
+
+  // Remove commas and convert the formatted string to a float
+  Stage4Data.DCAmount = parseFloat(value.replace(/,/g, ''));
+
+  // You can log to verify
+  console.log("DC Amount as float:", Stage4Data.DCAmount);
 }
+
 
 let stageStartTimes: { [key: number]: string } = {};
 let lastSavedTimes: { [key: number]: string } = {};
@@ -2213,7 +2293,7 @@ function updateDeliveryDateMin() {
 
   // Reactive statements
   $: {
-    stageData[4].visible = returnPickupRequested;
+    stageData[4].visible = Stage4Data.returnPickupRequested;
     stageData = stageData; // Trigger reactivity
   }
 
@@ -2478,7 +2558,7 @@ $: visibleStages = (isDropped || isMonitoring)
       isValidating = false;
     }
   }
-  async function fetchPreviousStagesData() {
+async function fetchPreviousStagesData() {
   try {
     const response = await fetch(`/fetch-previous`, {
       method: 'POST',
@@ -2502,6 +2582,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   let stage0Fetched = false;
   let stage1Fetched = false;
   let stage3Fetched = false;
+  let stage4Fetched = false;
 
   if (data.stage0) {
     Stage0Data = { ...data.stage0 };
@@ -2558,13 +2639,41 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       Stage3Data.ScheduleDate=new Date(data.stage3.service.ScheduleDate).toISOString().split('T')[0];
       Stage3Data.activeTab=data.stage3.service.activeTab;
       Stage3Data.ReportName=data.stage3.service.ServiceReportName;
-      Stage3Data.PreviewUrl=data.stage3.installation.ServicePreviewUrl;
+    }
+    if(data.stage3.stage4Data){
+      Stage4Data.SONumber = data.stage3.stage4Data.SONumber;
+      Stage4Data.returnPickupRequested = data.stage3.stage4Data.returnPickupRequested;
+      Stage4Data.ReturnPickupName = data.stage3.stage4Data.ReturnPickupName;
+      Stage4Data.ReturnPickupMobile = data.stage3.stage4Data.ReturnPickupMobile;
+      Stage4Data.ReturnPickupRemark = data.stage3.stage4Data.ReturnPickupRemark;
     }
     stage3Fetched = true;
   }
+  if(data.stage4){
+    Stage4Data.DCNumber = data.stage4.DCNumber;
+    Stage4Data.CourierTrackNo=data.stage4.CourierTrackNo;
+    Stage4Data.DCAmount=data.stage4.DCAmount;
+    Stage4Data.DispatchDate=new Date(data.stage4.DispatchDate).toISOString().split('T')[0];
+    Stage4Data.DeliveryDate=new Date(data.stage4.DeliveryDate).toISOString().split('T')[0];
+    Stage4Data.Remark=data.stage4.Remark;
+    Stage4Data.Attachment=data.stage4.Attachment;
+    Stage4Data.fileName=data.stage4.fileName;
+  }
+  stage4Fetched = true;
 
+  if(data.stage5){
+    Stage5Data.accStatus = data.stage5.accStatus;
+    Stage5Data.rejected1 = data.stage5.rejected1;
+    Stage5Data.accRemark = data.stage5.accRemark;
+    Stage5Data.retaccStatus = data.stage5.retaccStatus;
+    Stage5Data.rejected2 = data.stage5.rejected2;
+    Stage5Data.retaccRemark = data.stage5.retaccRemark;
+    Stage5Data.isDataSaved1 = data.stage5.isDataSaved1;
+    Stage5Data.isEditing1 = data.stage5.isEditing1;
+    Stage5Data.isDataSaved2 = data.stage5.isDataSaved2;
+    Stage5Data.isEditing2 = data.stage5.isEditing2;
+  }
 
-  console.log("Global Stage3", Stage3Data);
   return { stage0Fetched, stage1Fetched, stage3Fetched };
 }
 
@@ -3291,14 +3400,16 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   
   <div class="flex justify-between mt-4">
   <div class="flex space-x-2">
+    {#if moveStage >= currentStage}
     <button 
       type="button" 
       on:click={handleSave} 
       class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      disabled={!canSaveDC(dcBoxes[dcBoxes.length - 1])}
+      disabled={!canSaveDC(dcBoxes[dcBoxes.length - 1]) || isSaveDisabled}
     >
       Save
     </button>
+    {/if}
     {#if !allItemsNotAvailable && lineItemsWithStatus.length>1}
         <button 
           type="button" 
@@ -3480,24 +3591,24 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
    <div class="mb-6">
     {#each shipments as shipment, index}
         <div class="mb-6 p-6 bg-gray-100 shadow-md border border-gray-200 rounded-lg relative transition-transform transform hover:scale-[1.01]">
-          {#if shipment.rejected}
+          {#if Stage5Data.rejected1}
           <div class="flex items-start bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 shadow-sm" role="alert">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636L5.636 18.364M18.364 18.364L5.636 5.636" />
             </svg>
             <div>
               <strong class="font-semibold">Rejected:</strong>
-              <span class="block sm:inline"> {shipment.rejectionRemark}</span>
+              <span class="block sm:inline"> {Stage5Data.accRemark}</span>
             </div>
             </div>
-            {:else if shipment.approved}
+          {:else if Stage5Data.rejected1===false}
             <div class="flex items-start bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4 shadow-sm" role="alert">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
               <div>
               <strong class="font-semibold">Approved:</strong>
-              <span class="block sm:inline"> {shipment.accountRemark}</span>
+              <span class="block sm:inline"> {Stage5Data.accRemark}</span>
             </div>
             </div>
           {/if}
@@ -3793,13 +3904,16 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 
         {#if !shipment.isSaved || shipment.isEditing}
         <div class="relative flex space-x-4 mt-4">
+          {#if moveStage>=currentStage}
           <button 
             type="button" 
             on:click={() => saveShipment(index)}
             class="px-5 py-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300 transition duration-300 ease-in-out shadow-md"
+            disabled={isSave3Disabled}
           >
           {shipment.isEditing ? 'Update' : 'Save'}
         </button>
+        {/if}
         {#if shipment.isEditing}
           <button 
             type="button" 
@@ -3860,16 +3974,16 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         <button 
           type="button" 
           on:click={() => {
-            returnPickupRequested = !returnPickupRequested;
+            Stage4Data.returnPickupRequested = !Stage4Data.returnPickupRequested;
             stageData = [...stageData]; // Trigger reactivity
           }}
-          class="mt-4 mb-4 px-6 py-3 {returnPickupRequested ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold rounded-lg transition duration-300 ease-in-out shadow-lg"
+          class="mt-4 mb-4 px-6 py-3 {Stage4Data.returnPickupRequested ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold rounded-lg transition duration-300 ease-in-out shadow-lg"
           disabled={returnPickupDetailsSaved} 
         >
-          {returnPickupRequested ? 'Cancel Return Pickup' : 'Request Return Pickup'}
+          {Stage4Data.returnPickupRequested ? 'Cancel Return Pickup' : 'Request Return Pickup'}
         </button>
        <!-- Return Pickup Details box -->
-       {#if returnPickupRequested && !showReturnPickupConfirmation}
+       {#if Stage4Data.returnPickupRequested && !showReturnPickupConfirmation}
        <div class="mb-8 p-6 border border-gray-300 rounded-lg bg-gray-50 shadow-md">
         <h4 class="text-lg font-bold text-gray-800 mb-4">Return Pickup Details</h4>
         <div class="space-y-6">
@@ -4011,24 +4125,24 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
    {:else if moveStage === 4 && stageData[4].visible}
    <!-- Return Pickup Stage -->
    <div class="mb-8 p-6 border border-gray-200 shadow-md rounded-lg bg-gray-100 relative">
-    {#if returnPickup.rejected}
-    <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-sm flex items-center mb-4" role="alert">
-      <svg class="w-5 h-5 mr-2 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v4a1 1 0 102 0V7zm-1 7a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+    {#if Stage5Data.rejected2}
+    <div class="flex items-start bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 shadow-sm" role="alert">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636L5.636 18.364M18.364 18.364L5.636 5.636" />
       </svg>
       <div>
         <strong class="font-semibold">Rejected:</strong>
-        <span class="block sm:inline">{returnPickup.rejectionRemark}</span>
+        <span class="block sm:inline">{Stage5Data.retaccRemark}</span>
       </div>
     </div>
-    {:else if returnPickup.approved}
-    <div class="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded-lg shadow-sm flex items-center mb-4" role="alert">
-      <svg class="w-5 h-5 mr-2 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-4a1 1 0 102 0v-1a1 1 0 10-2 0v1zm1-9a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+    {:else if Stage5Data.rejected2===false}
+    <div class="flex items-start bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4 shadow-sm" role="alert">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
       </svg>
       <div>
         <strong class="font-semibold">Approved:</strong>
-        <span class="block sm:inline">{returnPickup.approvalRemark}</span>
+        <span class="block sm:inline">{Stage5Data.retaccRemark}</span>
       </div>
       </div>
   {/if}
@@ -4044,7 +4158,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
               bind:value={Stage4Data.ReturnPickupName} 
               class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
             required
-            disabled={returnPickup.isSaved || !isEditing}
+            disabled
         >
       </div>
       <div>
@@ -4057,7 +4171,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
           maxlength="10"
           required
-          disabled={returnPickup.isSaved || !isEditing}
+          disabled
         >
       </div>
     </div>
@@ -4070,7 +4184,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
             rows="5"
             required
-            disabled={returnPickup.isSaved || !isEditing}
+            disabled
       ></textarea>
     </div>
 
@@ -4234,9 +4348,8 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
     <div>
       <label for="dc-amount" class="block text-sm font-semibold text-gray-800">DC Amount:</label>
       <input 
-        type="text" inputmode="decimal" 
-        id="dc-amount" 
-        pattern="[0-9]*[.]?[0-9]*"
+        type="number"
+        id="dc-amount"
         bind:value={Stage4Data.DCAmount} 
         on:input={formatAmountreturn}
         class="mt-3 w-full px-4 py-3 border-gray-300 text-base rounded-lg shadow-md focus:ring-blue-500 focus:border-blue-500" 
@@ -4311,7 +4424,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         </button>
         <button 
           type="button" 
-          on:click={() => downloadFile(Stage4Data.Attachment, Stage4Data.fileName || '')}
+          on:click={() => downloadFile(Stage4Data.Attachment, Stage4Data.fileName)}
           class="text-sm text-green-600 hover:text-green-800 font-medium underline"
         >
           Download
@@ -4319,6 +4432,56 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       </div>
     </div>
       </div>
+      {#if showCustomNameModal}
+                <div class="fixed z-10 inset-0 overflow-y-auto">
+                  <div class="flex items-center justify-center min-h-screen px-4">
+                    <div class="bg-white rounded-lg border border-gray-300 overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+                      <div class="bg-gray-50 px-4 py-3 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                          Enter Custom File Name
+                        </h3>
+                      </div>
+                      <div class="bg-white px-6 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <div class="mt-2">
+                              <input 
+                                type="text" 
+                                bind:value={customFileName}
+                                placeholder="Enter custom file name"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm px-4 py-2"
+                              >
+                              <span class="text-sm text-gray-500 mt-1">.{customFileExtension}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button 
+                          type="button" 
+                          on:click={() => {
+                            Stage4Data.fileName = `${customFileName}.${customFileExtension}`;
+                            showCustomNameModal = false;
+                            // Update the file preview
+                            Stage4Data.Attachment = Stage4Data.Attachment; // Trigger update
+        
+                          }}
+                          class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          Save
+                        </button>
+                        <button 
+                          type="button" 
+                          on:click={() => showCustomNameModal = false}
+                          class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {/if}
     {/if}
   </div>
 
@@ -4339,25 +4502,40 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 <!-- Preview Modal -->
 <div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
   <div class="modal-content relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+    
+    <!-- Modal Header -->
     <div class="flex justify-between items-center pb-3">
       <p class="text-2xl font-bold">File Preview</p>
       <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" on:click={closePreviewModal}>
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        </svg>
       </button>
     </div>
+    
+    <!-- Modal Body: Image and Iframe for file previews -->
     <div class="mt-4">
+      <!-- Image Preview -->
       <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
+      
+      <!-- PDF Preview -->
       <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+
+      <!-- Download link for non-previewable files (like .doc or .docx) -->
+      <a id="previewLink" class="block text-blue-500 underline text-center mt-4" style="display:none;" download>Download Document</a>
     </div>
-</div>
+    
+  </div>
 </div>
 
 
-{:else if moveStage === (stageData[4].visible ? 5 : 4)}
+{:else if moveStage  === stageData.findIndex(stage => stage.title === "Stage 5. Share with Account")}
+
   <!-- Share with Account stage content -->
   <h4 class="text-lg font-bold mb-2">Installation or Service Report</h4>
   <!-- Ongoing Shipments -->
-  {#each shipments.filter(s => s.isSaved) as shipment, index}
+  <!-- {#each shipments.filter(s => s.isSaved) as shipment, index} -->
+  {#if Stage3Data}
   <div class="bg-white shadow-md rounded-lg p-6 mb-8">
     <h5 class="text-xl font-bold mb-4 text-gray-800">
       {Stage3Data.activeTab === 'installation' ? 'Installation Report' : 'Service Report'}
@@ -4380,14 +4558,13 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <label for="report-attachment-{index}" class="block text-sm font-medium text-gray-700 mb-1">
         {Stage3Data.activeTab === 'installation' ? 'Installation' : 'Service'} Report Attachment:
       </label>
-      {Stage3Data.Report}
         <div class="flex items-center space-x-4">
           <span class="text-sm text-gray-600">
             {Stage3Data.ReportName || 'File uploaded'}
           </span>
     <button 
       type="button" 
-      on:click={() => previewFile(Stage3Data.Report)}
+      on:click={() => previewFile()}
       class="text-blue-600 hover:text-blue-800 text-sm font-medium"
     >
       Preview
@@ -4407,14 +4584,14 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <div class="flex justify-center space-x-4 mt-6">
         <button
           type="button"
-          class="px-4 py-2 rounded-md font-medium transition-colors duration-200 {shipment.accountStatus === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-green-100'}"
+          class="px-4 py-2 rounded-md font-medium transition-colors duration-200 {Stage5Data.accStatus === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-green-100'}"
           on:click={() => {
-            if (!shipment.isDataSaved) {
+            if (!Stage5Data.isDataSaved1) {
               Stage5Data.accStatus = 'approved';
-              Stage5Data.accRemark = '';
+              Stage5Data.rejected1 = false;
             }
           }}
-          disabled={shipment.isDataSaved}
+          disabled={Stage5Data.isDataSaved1}
         >
           Approved
         </button>
@@ -4422,12 +4599,12 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           type="button"
           class="px-4 py-2 rounded-md font-medium transition-colors duration-200 {Stage5Data.accStatus === 'rejected' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-red-100'}"
           on:click={() => {
-            if (!shipment.isDataSaved) {
+            if (!Stage5Data.isDataSaved1) {
               Stage5Data.accStatus = 'rejected';
-              Stage5Data.accRemark = '';
+              Stage5Data.rejected1 = true;
             }
           }}
-          disabled={shipment.isDataSaved}
+          disabled={Stage5Data.isDataSaved1}
         >
           Rejected
         </button>
@@ -4444,7 +4621,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             bind:value={Stage5Data.accRemark}
             class="w-full px-3 py-2 text-gray-700 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows="4"
-            disabled={shipment.isDataSaved || !isEditing}
+            disabled={Stage5Data.isDataSaved1 || !isEditing}
         ></textarea>
       </div>
       {/if}
@@ -4454,30 +4631,58 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <button 
         type="button" 
         on:click={() => {
-          if (shipment.isDataSaved) {
-            shipment.isDataSaved = false;
-            shipment.isEditing = true;
+          if (Stage5Data.isDataSaved1) {
+            Stage5Data.isDataSaved1 = false;
+            Stage5Data.isEditing1 = true;
           } else {
             if (!Stage5Data.accStatus || !Stage5Data.accRemark || Stage5Data.accRemark.trim() === '') {
               alert("Please fill up the details before saving");
               return;
             }
-            shipment.isDataSaved = true;
-            shipment.isEditing = false;
+            Stage5Data.isDataSaved1 = true;
+            Stage5Data.isEditing1 = false;
           }
           shipments = [...shipments];
         }}
-        class="px-4 py-2 rounded-md font-medium transition-colors duration-200 {shipment.isDataSaved ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-500 hover:bg-green-600'} text-white"
+        class="px-4 py-2 rounded-md font-medium transition-colors duration-200 {Stage5Data.isDataSaved1 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-500 hover:bg-green-600'} text-white"
       >
-        {shipment.isDataSaved ? 'Edit' : 'Save'}
+        {Stage5Data.isDataSaved1 ? 'Edit' : 'Save'}
       </button>
     </div>
   </div>
-  {/each}
+  <div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
+    <div class="modal-content relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+      
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center pb-3">
+        <p class="text-2xl font-bold">File Preview</p>
+        <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" on:click={closePreviewModal}>
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Modal Body: Image and Iframe for file previews -->
+      <div class="mt-4">
+        <!-- Image Preview -->
+        <img id="previewImage" alt="File preview" class="max-w-full max-h-[70vh] mx-auto" style="display:none;">
+        
+        <!-- PDF Preview -->
+        <iframe id="previewIframe" class="w-full h-[70vh]" style="display:none;" title="File preview content"></iframe>
+  
+        <!-- Download link for non-previewable files (like .doc or .docx) -->
+        <a id="previewLink" class="block text-blue-500 underline text-center mt-4" style="display:none;" download>Download Document</a>
+      </div>
+      
+    </div>
+  </div>
+  {/if}
+  <!-- {/each} -->
 
   <h4 class="text-lg font-bold mb-2">Return Pickups Report</h4>
   <!-- Return Pickups -->
-  {#if returnPickup.isSaved}
+  {#if Stage4Data}
   <div class="bg-white shadow-lg rounded-lg p-6 mb-8 relative">
     <!-- Return pickup report remarks -->
     <div class="mb-6">
@@ -4488,21 +4693,12 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
         rows="4" 
         required
-        disabled={returnPickup.isSaved && !returnPickup.isEditing || !isEditing}
+        disabled
         ></textarea>
       </div>
       <div class="mb-6">
         <label for="attachment" class="block text-sm font-semibold text-gray-700 mb-2">Return pickup report attachment:</label>
-        {#if !returnPickup.isDataSaved}
-        <input 
-          type="file" 
-          id="attachment" 
-          on:change={handleReturnPickupFileChange}
-          class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
-          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-          required
-        >
-      {/if}
+      
       {#if Stage4Data.Attachment}
           <div class="mt-2 flex items-center space-x-4">
             <span class="text-sm text-gray-600">{Stage4Data.fileName || 'File uploaded'}</span>
@@ -4528,84 +4724,70 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <div class="flex justify-center space-x-4 mb-6">
         <button
           type="button"
-          class="px-6 py-2 rounded-full font-medium transition-colors duration-200 {Stage5Data.retaccStatus === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-green-100'}"
-        on:click={() => {
-          if (Stage5Data.retaccStatus === 'rejected') {
-            returnPickup.rejected = false;
-            returnPickup.rejectionRemark = '';
-          }
-          returnPickup.accountStatus = 'approved';
-          returnPickup.accountRemark = '';
-          returnPickup.approved = true;
-          returnPickup.approvalRemark = '';
-        }}
-        disabled={returnPickup.isDataSaved && !returnPickup.isEditing}
-      >
+          class="px-4 py-2 rounded-md font-medium transition-colors duration-200 {Stage5Data.retaccStatus === 'approved' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-green-100'}"
+          on:click={() => {
+            if (!Stage5Data.isDataSaved2) {
+              Stage5Data.retaccStatus = 'approved';
+              Stage5Data.rejected2 = false;
+            }
+          }}
+          disabled={Stage5Data.isDataSaved2}
+        >
           Approved
         </button>
+        
         <button
           type="button"
-          class="px-6 py-2 rounded-full font-medium transition-colors duration-200 {returnPickup.accountStatus === 'rejected' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-red-100'}"
-        on:click={() => {
-          returnPickup.accountStatus = 'rejected';
-          returnPickup.accountRemark = '';
-          returnPickup.rejected = true;
-          returnPickup.rejectionRemark = '';
-          returnPickup.approved = false;
-          returnPickup.approvalRemark = '';
+          class="px-4 py-2 rounded-md font-medium transition-colors duration-200 {Stage5Data.retaccStatus === 'rejected' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-red-100'}"
+          on:click={() => {
+            Stage5Data.retaccStatus = 'rejected';
+            Stage5Data.rejected2 = true;
         }}
-        disabled={returnPickup.isDataSaved && !returnPickup.isEditing}
+        disabled={Stage5Data.isDataSaved2 || !isEditing}
       >
           Rejected
         </button>
       </div>
 
-      <!-- Remark field -->
-      <div class="mb-6">
-        <label for="pickup-remark" class="block text-sm font-semibold text-gray-700 mb-2">Remark:</label>
-        <textarea 
-          id="pickup-remark" 
-          bind:value={returnPickup.accountRemark} 
-        on:input={() => {
-          if (returnPickup.accountStatus === 'rejected') {
-            returnPickup.rejectionRemark = returnPickup.accountRemark;
-          } else if (returnPickup.accountStatus === 'approved') {
-            returnPickup.approvalRemark = returnPickup.accountRemark;
-          }
+      {#if Stage5Data.retaccStatus}
+        <div class="mt-6">
+          <label for="account-remark-{index}" class="block text-sm font-medium text-gray-700 mb-1">
+            {Stage5Data.retaccStatus === 'approved' ? 'Approval' : 'Rejection'} Remark:
+          </label>
+          <textarea
+            id="account-remark-{index}"
+            bind:value={Stage5Data.retaccRemark}
+            class="w-full px-3 py-2 text-gray-700 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="4"
+            disabled={Stage5Data.isDataSaved2 || !isEditing}
+        ></textarea>
+      </div>
+      {/if}
+
+      <div class="mt-6 text-right">
+        <button 
+          type="button" 
+          on:click={() => {
+            if (Stage5Data.isDataSaved2) {
+              Stage5Data.isDataSaved2 = false;
+              Stage5Data.isEditing2 = true;
+            } else {
+              if (!Stage5Data.retaccStatus || !Stage5Data.retaccRemark || Stage5Data.retaccRemark.trim() === '') {
+                alert("Please fill up the details before saving");
+                return;
+              }
+              Stage5Data.isDataSaved2 = true;
+              Stage5Data.isEditing2 = false;
+            }
           }}
-          class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
-          rows="4" 
-          required
-          disabled={returnPickup.isDataSaved && !returnPickup.isEditing || !isEditing}
-        ></textarea>        
+          class="px-4 py-2 rounded-md font-medium transition-colors duration-200 {Stage5Data.isDataSaved2 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-500 hover:bg-green-600'} text-white"
+        >
+          {Stage5Data.isDataSaved2 ? 'Edit' : 'Save'}
+        </button>
       </div>
 
-      <!-- Save/Edit button -->
-      <div class="text-right">
-      <button 
-        type="button" 
-        on:click={() => {
-          if (returnPickup.isDataSaved) {
-            // Enter edit mode
-            returnPickup.isDataSaved = false;
-            returnPickup.isEditing = true;
-          } else {
-            // Validate before saving
-            if (!Stage5Data.retaccStatus || !Stage5Data.retaccountRemark || Stage5Data.retaccountRemark.trim() === '') {
-              alert("Please fill up the details before saving");
-              return;
-            }
-            // Save changes
-            returnPickup.isDataSaved = true;
-            returnPickup.isEditing = false;
-            // Add any additional save logic here
-          }
-        }}
-        class="px-6 py-2 rounded-full font-medium transition-colors duration-200 {returnPickup.isDataSaved ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-500 hover:bg-green-600'} text-white"
-        >
-          {returnPickup.isDataSaved ? 'Edit' : 'Save'}
-      </button>
-    </div>
+
+      
     </div>
 
     <div id="previewModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style="display:none;">
@@ -4677,12 +4859,15 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 Edit
               </button>
             {/if}    -->    
-        <button 
-        type="submit" 
-        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition duration-150 ease-in-out ml-auto"
-      >
-        Submit
-      </button>           
+            {#if moveStage >= currentStage}
+            <button 
+              type="submit" 
+              class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition duration-150 ease-in-out ml-auto"
+            >
+              Submit
+            </button>
+           {/if}
+                     
           </div>
 
     <!-- Time information -->

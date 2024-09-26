@@ -114,6 +114,7 @@ const prisma = new PrismaClient({
           if (data.ReturnPickupName){
             result = await prisma.stage4.create({
               data: { SONumber: data.SONumber,
+                      returnPickupRequested:data.returnPickupRequested,
                       ReturnPickupName:data.ReturnPickupName,
                       ReturnPickupMobile:data.ReturnPickupMobile, ReturnPickupRemark:data.ReturnPickupRemark }
             });
@@ -151,13 +152,16 @@ const prisma = new PrismaClient({
           await prisma.stage5.create({
             data: {
               SONumber: data.SONumber,
-              rejected: data.rejected,
-              rejectionRemark: data.rejectionRemark,
-              accountRemark: data.accountRemark,
+              accStatus: data.accStatus,
+              rejected1: data.rejected1,
+              accRemark: data.accRemark,
               retaccStatus: data.retaccStatus,
-              retrejected: data.retrejected,
-              retrejectionRemark: data.retrejectionRemark,
-              retaccountRemark: data.retaccountRemark
+              rejected2: data.rejected2,
+              retaccRemark: data.retaccRemark,
+              isDataSaved1: data.isDataSaved1,
+              isEditing1: data.isEditing1,
+              isDataSaved2: data.isDataSaved2,
+              isEditing2: data.isEditing2
             },
         });
         default:
