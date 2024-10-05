@@ -120,9 +120,10 @@
               {/if}
             </button>
           </div>
-            <!-- <div class="text-sm mt-2">
-              <a href="/forgot-password" class="font-medium text-blue-600 hover:text-blue-500">Forgot password?</a>
-            </div> -->
+        <!-- In your login page, add this link -->
+        <div class="text-sm mt-2">
+          <a href="/forgot-password" class="font-medium text-blue-600 hover:text-blue-500">Forgot password?</a>
+        </div>
         </div>
 
         {#if form?.invalid}

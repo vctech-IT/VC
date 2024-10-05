@@ -1,7 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
 import { db } from '$lib/database';
-import { sendPasswordResetEmail } from '$lib/emailService'; // You'll need to implement this function
+import crypto from 'crypto';
+import { sendPasswordResetEmail } from '$lib/emailService';
 
 export const actions: Actions = {
   forgotPassword: async ({ request }) => {
@@ -9,31 +10,32 @@ export const actions: Actions = {
     const email = data.get('email');
 
     if (typeof email !== 'string' || !email) {
-      return fail(400, { error: 'Invalid email' });
+      return fail(400, { error: 'Please provide a valid email address.' });
     }
 
     const user = await db.user.findUnique({ where: { email } });
 
     if (!user) {
-      return fail(400, { error: 'No account found with this email' });
+      // For security reasons, we still return success even if the email doesn't exist
+      return { success: true };
     }
 
-    // Generate a password reset token
-    const resetToken = crypto.randomUUID();
-    const resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour from now
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
 
-    // Update the user with the reset token and expiration
     await db.user.update({
       where: { email },
       data: {
         resetToken,
-        resetTokenExpires,
-      },
+        resetTokenExpiry
+      }
     });
 
     // Send password reset email
     await sendPasswordResetEmail(email, resetToken);
 
-    return { success: true };
-  },
+    return {
+      success: true
+    };
+  }
 };

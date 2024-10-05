@@ -104,7 +104,8 @@ export const POST: RequestHandler = async ({ request }) => {
               clientName: true,
               SOCategory: true,
               Total: true
-            }
+            },
+
           }
         }
       }),

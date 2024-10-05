@@ -2,7 +2,7 @@
  import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import type { PageData } from './$types';
-    import type { SalesOrder, ActivityLog } from '$lib/types';
+    import type { SalesOrder } from '$lib/types';
     import '$lib/styles/app.css';
     import { onMount, createEventDispatcher } from 'svelte';
     import { fade } from 'svelte/transition';
@@ -13,9 +13,27 @@
     import { fly } from 'svelte/transition';
     import { Clock, User, Activity } from 'svelte-lucide';
     import { invalidate } from '$app/navigation';
-	import  StageModal  from '$lib/components/StageModalRef.svelte';
+	  import  StageModal  from '$lib/components/StageModalRef.svelte';
+    import type { ActivityLog } from '$lib/types/activityLog';
+    import { ChevronLeft, ChevronRight } from 'svelte-lucide';
 
     export let data: PageData;
+
+  let currentPage = 1;
+  let logsPerPage = 10;
+
+
+
+  $: paginatedLogs = activityLogs.slice((currentPage - 1) * logsPerPage, currentPage * logsPerPage);
+  $: totalPages = Math.ceil(activityLogs.length / logsPerPage);
+
+  function nextPage() {
+    if (currentPage < totalPages) currentPage++;
+  }
+
+  function prevPage() {
+    if (currentPage > 1) currentPage--;
+  }
 
     let expandedLog: string | null = null;
 
@@ -60,6 +78,16 @@
     if (action.toLowerCase().includes('deleted')) return 'trash-2';
     return 'activity';
   }
+
+  function formatLogDate(date: Date) {
+  return new Date(date).toLocaleString('en-GB', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
 
   function getCurrentStageText(stage: number | undefined): string {
     switch(stage) {
@@ -178,23 +206,6 @@
     unsubscribe();
   }
 
-function formatLogDate(dateString: Date) {
-  return new Date(dateString).toLocaleString('en-GB', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
-  function getActionColor(action: string): string {
-    if (action.toLowerCase().includes('updated')) return 'bg-blue-500';
-    if (action.toLowerCase().includes('created' && 'set')) return 'bg-green-500';
-    if (action.toLowerCase().includes('deleted')) return 'bg-red-500';
-    return 'bg-gray-500';
-  }
-
   
     async function getToken(fetch: typeof globalThis.fetch): Promise<string> {
         const tokenResponse = await fetch('/api/zohoAuthToken');
@@ -254,6 +265,25 @@ onMount(() => {
         document.removeEventListener('keydown', handleKeydown);
     };
 });
+
+  function getActionColor(category: string): string {
+    switch (category) {
+      case 'order_status_change': return 'bg-blue-500';
+      case 'document_upload': return 'bg-green-500';
+      case 'customer_interaction': return 'bg-yellow-500';
+      case 'payment_update': return 'bg-purple-500';
+      case 'shipment_update': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  }
+
+    async function refreshActivityLogs() {
+    const response = await fetch(`/api/activity-logs/${salesOrder.salesorder_number}`);
+    if (response.ok) {
+      const newLogs = await response.json();
+      activityLogs = newLogs;
+    }
+  }
 
   
 </script>
@@ -429,26 +459,42 @@ onMount(() => {
   
   {#if activityLogs && activityLogs.length > 0}
     <div class="relative">
-      <!-- Timeline line -->
       <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
-      <!-- Log entries -->
-      {#each activityLogs as log}
-        <div class="mb-8 flex">
-          <!-- Timeline dot -->
-          <div class="absolute left-4 w-3 h-3 rounded-full mt-1.5 -ml-1.5 {getActionColor(log.action)}"></div>
+      {#each paginatedLogs as log (log.id)}
+        <div class="mb-8 flex" transition:fade="{{ duration: 300 }}">
+          <div class="absolute left-4 w-3 h-3 rounded-full mt-1.5 -ml-1.5 {getActionColor(log.category)}"></div>
           
-          <!-- Log content -->
           <div class="ml-12">
             <div class="flex items-center mb-1">
               <span class="font-medium text-gray-900 mr-2">{log.username}</span>
               <span class="text-sm text-gray-500">({log.role})</span>
             </div>
             <p class="text-gray-700 mb-2">{log.action}</p>
+            {#if log.details}
+              <p class="text-sm text-gray-600 mb-2">{log.details}</p>
+            {/if}
             <span class="text-sm text-gray-500">{formatLogDate(log.timestamp)}</span>
           </div>
         </div>
       {/each}
+    </div>
+    <div class="flex justify-between items-center mt-4">
+      <button 
+        class="px-4 py-2 bg-blue-500 text-white rounded-md disabled:opacity-50"
+        on:click={prevPage}
+        disabled={currentPage === 1}
+      >
+        <ChevronLeft size={20} />
+      </button>
+      <span>Page {currentPage} of {totalPages}</span>
+      <button 
+        class="px-4 py-2 bg-blue-500 text-white rounded-md disabled:opacity-50"
+        on:click={nextPage}
+        disabled={currentPage === totalPages}
+      >
+        <ChevronRight size={20} />
+      </button>
     </div>
   {:else}
     <p class="text-gray-500 italic">No activity logs available.</p>
@@ -499,6 +545,7 @@ username={data.user.name}
     }}
     salesOrder={salesOrder}
     Stage0Data={Stage0Data}
+    on:activityLogged={refreshActivityLogs}
     on:close={() => showStageUpdateModal = false}
   />
 {/if}

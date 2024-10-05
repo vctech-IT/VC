@@ -16,8 +16,72 @@
   export let data: PageData;
   export let salesOrder: SalesOrder;
   const dispatch = createEventDispatcher();
+  let originalData: any = {};
+  let originalLineItemsStatus: { [key: string]: string } = {};
 
   type Role = 'ADMIN' | 'USER' | 'ACCOUNTANT' | 'MATERIALPROCURE' | 'WAREHOUSE' | 'OPERATION' | 'MANAGER';
+
+
+
+async function logFieldChange(fieldName: string, oldValue: any, newValue: any) {
+  const action = 'Field Updated';
+  const details = `Updated ${fieldName} from "${oldValue}" to "${newValue}"`;
+  
+  try {
+    const response = await fetch('/api/log-activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        salesOrderId: salesOrder.salesorder_number,
+        username,
+        role: userRole,
+        action,
+        details,
+        category: 'field_update'
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to log activity');
+    }
+
+    dispatch('activityLogged');
+  } catch (error) {
+    console.error('Error logging activity:', error);
+  }
+}
+
+async function logLineItemChange(itemId: string, itemName: string, oldStatus: string, newStatus: string) {
+  const action = 'Line Item Status Updated';
+  const details = `Updated status of "${itemName}" (ID: ${itemId}) from "${oldStatus}" to "${newStatus}"`;
+  
+  try {
+    const response = await fetch('/api/log-activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        salesOrderId: salesOrder.salesorder_number,
+        username,
+        role: userRole,
+        action,
+        details,
+        category: 'line_item_update'
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to log activity');
+    }
+
+    dispatch('activityLogged');
+  } catch (error) {
+    console.error('Error logging activity:', error);
+  }
+}
 
   interface StageData {
   title: string;
@@ -26,6 +90,34 @@
   editableRoles: Role[];
 }
   let isEditing = false;
+
+  async function logActivity(action: string, details: string) {
+  try {
+    const response = await fetch('/api/log-activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        salesOrderId: salesOrder.salesorder_number,
+        username,
+        role: userRole,
+        action,
+        details,
+        category: 'stage_update'
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to log activity');
+    }
+
+    // Notify parent component that a new log has been added
+    dispatch('activityLogged');
+  } catch (error) {
+    console.error('Error logging activity:', error);
+  }
+}
 
   // Define stage data with role-based edit permissions
   let stageData: StageData[] = [
@@ -98,6 +190,8 @@ onMount(async () => {
     console.log("hey");
     notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available')
   }})
+
+
 
  if ( currentStage === 0) {
   currentStage = moveStage= 0;
@@ -443,6 +537,18 @@ if ( currentStage === 5) {
   }
 }
 
+  onMount(() => {
+  originalData = { ...Stage0Data };
+  });
+
+  onMount(() => {
+  // Initialize the original status for each line item
+  originalLineItemsStatus = lineItemsWithStatus.reduce((acc, item) => {
+    acc[item.Itemid] = item.status;
+    return acc;
+  }, {});
+});
+
 // Function to check if the current user can edit a specific stage
 function canEditStage(userRole: Role, stage: StageData,moveStage: number): boolean {
     return ((stage.editableRoles.includes(userRole) || userRole === 'ADMIN') && (moveStage >= currentStage));
@@ -725,10 +831,28 @@ async function handleSubmit(event: Event) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ stage: currentStage, data: Stage0Data })});
+          const changedFields = [];
+          for (const [key, value] of Object.entries(Stage0Data)) {
+          if (value !== originalData[key]) {
+            changedFields.push({ field: key, oldValue: originalData[key], newValue: value });
+          }
+        }
+    if (changedFields.length > 0) {
+    // Perform your save operation here
+
+    // Log all changes
+    for (const change of changedFields) {
+      await logFieldChange(change.field, change.oldValue, change.newValue);
+    }
+
+    // Update originalData with new values
+    originalData = { ...Stage0Data };
+  }
         }
         catch (error) {
             console.error('Error:', error);
-        }} 
+        }
+      } 
         break;
     case 1:
       if (!allLineItemsFrozen()) {
@@ -777,6 +901,29 @@ async function handleSubmit(event: Event) {
       updateDCAmount(dcBoxes.length - 1);
       updateDCOrderTotal();
       saveCurrentState();
+    const changedLineItems = lineItemsWithStatus.filter(item => 
+    item.status !== originalLineItemsStatus[item.Itemid]
+  );
+
+  if (changedLineItems.length > 0) {
+    // Perform your save operation here
+
+    // Log all changes
+    for (const item of changedLineItems) {
+      await logLineItemChange(
+        item.Itemid, 
+        item.name, 
+        originalLineItemsStatus[item.Itemid], 
+        item.status
+      );
+    }
+
+    // Update originalLineItemsStatus with new values
+    changedLineItems.forEach(item => {
+      originalLineItemsStatus[item.Itemid] = item.status;
+    });
+  }
+
       await Swal.fire({
         title: 'Success',
         text: 'Logistics stage completed successfully.',

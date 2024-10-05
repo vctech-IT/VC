@@ -12,6 +12,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+
 export async function sendPasswordResetEmail(email: string, resetToken: string) {
   const resetUrl = `http://vc-tech.vercel.app/reset-password?token=${resetToken}`;
 
