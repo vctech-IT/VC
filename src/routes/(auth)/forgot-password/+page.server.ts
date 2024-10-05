@@ -7,35 +7,38 @@ import { sendPasswordResetEmail } from '$lib/emailService';
 export const actions: Actions = {
   forgotPassword: async ({ request }) => {
     const data = await request.formData();
-    const email = data.get('email');
+    const email = data.get('email')?.toString().trim();
 
-    if (typeof email !== 'string' || !email) {
-      return fail(400, { error: 'Please provide a valid email address.' });
+    if (!email) {
+      return fail(400, { error: 'Please provide an email address.' });
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    try {
+      const user = await db.user.findUnique({ where: { email } });
 
-    if (!user) {
-      // For security reasons, we still return success even if the email doesn't exist
-      return { success: true };
-    }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
-
-    await db.user.update({
-      where: { email },
-      data: {
-        resetToken,
-        resetTokenExpiry
+      if (!user) {
+        return fail(400, { error: 'No account found with this email.' });
       }
-    });
 
-    // Send password reset email
-    await sendPasswordResetEmail(email, resetToken);
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
 
-    return {
-      success: true
-    };
+      await db.user.update({
+        where: { email },
+        data: {
+          resetToken,
+          resetTokenExpiry
+        }
+      });
+
+      await sendPasswordResetEmail(email, resetToken);
+
+      return {
+        success: true
+      };
+    } catch (error) {
+      console.error('Password reset error:', error);
+      return fail(500, { error: 'An error occurred. Please try again later.' });
+    }
   }
 };

@@ -2,15 +2,31 @@
   import { enhance } from '$app/forms';
   import type { ActionData } from './$types';
   import { fade } from 'svelte/transition';
+  import Swal from 'sweetalert2';
 
   export let form: ActionData;
   let loading = false;
 
   const handleSubmit = () => {
     loading = true;
-    return async ({ result }: { result: any }) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    return async ({ result }) => {
       loading = false;
+      
+      if (result.type === 'success') {
+        await Swal.fire({
+          title: 'Reset Link Sent!',
+          text: 'Please check your email for password reset instructions.',
+          icon: 'success',
+          confirmButtonText: 'OK'
+        });
+      } else if (result.type === 'failure') {
+        await Swal.fire({
+          title: 'Error',
+          text: result.data?.error || 'An error occurred. Please try again.',
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
     };
   };
 </script>
@@ -41,13 +57,6 @@
         />
       </div>
 
-      {#if form?.success}
-        <p class="text-green-500 text-sm">Reset link has been sent to your email.</p>
-      {/if}
-      {#if form?.error}
-        <p class="text-red-500 text-sm">{form.error}</p>
-      {/if}
-
       <button 
         type="submit" 
         class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
@@ -68,7 +77,7 @@
   <div transition:fade="{{ duration: 200 }}" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
     <div class="loader-container p-8 bg-white rounded-lg shadow-xl">
       <div class="loader"></div>
-      <p class="mt-4 text-gray-700 font-semibold">Sending reset link...</p>
+      <p class="mt-4 text-gray-700 font-semibold">Sending<br>reset link...</p>
     </div>
   </div>
 {/if}

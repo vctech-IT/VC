@@ -3,6 +3,7 @@
   import type { ActionData } from './$types';
   import { page } from '$app/stores';
   import { fade } from 'svelte/transition';
+  import Swal from 'sweetalert2';
 
   export let form: ActionData;
   let loading = false;
@@ -13,10 +14,54 @@
 
   const handleSubmit = () => {
     loading = true;
-    return async ({ result }: { result: any }) => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    return async ({ result }) => {
       loading = false;
+      
+      if (result.type === 'success') {
+        await Swal.fire({
+          title: 'Password Reset Successful!',
+          text: 'Your password has been successfully reset. You can now login with your new password.',
+          icon: 'success',
+          confirmButtonText: 'Go to Login'
+        });
+        window.location.href = '/login';
+      } else if (result.type === 'failure') {
+        await Swal.fire({
+          title: 'Error',
+          text: result.data?.error || 'An error occurred. Please try again.',
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
     };
+  };
+
+  const validatePasswords = (event) => {
+    const form = event.target as HTMLFormElement;
+    const password = form.password.value;
+    const confirmPassword = form.confirmPassword.value;
+
+    if (password !== confirmPassword) {
+      Swal.fire({
+        title: 'Error',
+        text: 'Passwords do not match!',
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
+      return false;
+    }
+
+    if (password.length < 8) {
+      Swal.fire({
+        title: 'Error',
+        text: 'Password must be at least 8 characters long.',
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
+      return false;
+    }
+
+    return true;
   };
 </script>
 
@@ -32,6 +77,7 @@
       action="?/resetPassword" 
       method="POST" 
       use:enhance={handleSubmit}
+      on:submit|preventDefault={(e) => validatePasswords(e) && e.target.submit()}
       class="space-y-6"
     >
       <input type="hidden" name="token" value={token}>
@@ -44,6 +90,7 @@
             name="password" 
             type={showPassword ? 'text' : 'password'}
             required 
+            minlength="8"
             class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             placeholder="Enter new password"
           />
@@ -52,7 +99,7 @@
             class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600"
             on:click={() => showPassword = !showPassword}
           >
-            <!-- Eye icon SVG here -->
+            <!-- Eye icon SVG -->
           </button>
         </div>
       </div>
@@ -65,6 +112,7 @@
             name="confirmPassword" 
             type={showConfirmPassword ? 'text' : 'password'}
             required 
+            minlength="8"
             class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             placeholder="Confirm new password"
           />
@@ -73,17 +121,10 @@
             class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600"
             on:click={() => showConfirmPassword = !showConfirmPassword}
           >
-            <!-- Eye icon SVG here -->
+            <!-- Eye icon SVG -->
           </button>
         </div>
       </div>
-
-      {#if form?.success}
-        <p class="text-green-500 text-sm">Password has been reset successfully.</p>
-      {/if}
-      {#if form?.error}
-        <p class="text-red-500 text-sm">{form.error}</p>
-      {/if}
 
       <button 
         type="submit" 
