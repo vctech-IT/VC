@@ -17,11 +17,47 @@ export async function sendPasswordResetEmail(email: string, resetToken: string) 
   const resetUrl = `http://vc-tech.vercel.app/reset-password?token=${resetToken}`;
 
   const mailOptions = {
-    from: '"Your App" <noreply@yourdomain.com>',
+    from: '"VC Tech" <noreply@yvctech.com>',
     to: email,
     subject: 'Password Reset Request',
     text: `Please click on the following link to reset your password: ${resetUrl}`,
-    html: `<p>Please click on the following link to reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+    html: `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset</title>
+      </head>
+      <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4;">
+        <div style="max-width: 600px; margin: 20px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <div style="background-color: #4a90e2; color: white; padding: 30px; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px; font-weight: 600;">Password Reset Request</h1>
+          </div>
+          <div style="padding: 30px; background-color: #ffffff;">
+            <p style="font-size: 16px; color: #555; margin-bottom: 25px;">Hello,</p>
+            <p style="font-size: 16px; color: #555; margin-bottom: 25px;">We received a request to reset your password for your VC Tech account. If you didn't make this request, you can safely ignore this email.</p>
+            <div style="text-align: center; margin: 35px 0;">
+              <a href="${resetUrl}" style="display: inline-block; padding: 14px 30px; background-color: #4a90e2; color: white; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: 600; transition: background-color 0.3s;">Reset Your Password</a>
+            </div>
+            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="font-size: 14px; color: #4a90e2; word-break: break-all; margin-bottom: 25px;">${resetUrl}</p>
+            <p style="font-size: 16px; color: #555; margin-bottom: 25px;">This password reset link will expire in 1 hour for security reasons.</p>
+            <div style="border-top: 1px solid #e0e0e0; margin-top: 30px; padding-top: 20px;">
+              <p style="font-size: 14px; color: #888; margin-bottom: 10px;">If you're having trouble, please contact our support team.</p>
+            </div>
+          </div>
+          <div style="background-color: #f8f9fa; padding: 20px; text-align: center;">
+            <p style="font-size: 14px; color: #666; margin: 0;">VC Tech - Empowering Your Digital Journey</p>
+          </div>
+        </div>
+        <div style="max-width: 600px; margin: 20px auto; text-align: center;">
+          <p style="font-size: 12px; color: #666;">This email was sent to ${email}</p>
+          <p style="font-size: 12px; color: #666;">© ${new Date().getFullYear()} VC Tech. All rights reserved.</p>
+        </div>
+      </body>
+      </html>
+    `
   };
 
   try {

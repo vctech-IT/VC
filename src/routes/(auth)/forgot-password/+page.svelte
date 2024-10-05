@@ -77,7 +77,7 @@
   <div transition:fade="{{ duration: 200 }}" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
     <div class="loader-container p-8 bg-white rounded-lg shadow-xl">
       <div class="loader"></div>
-      <p class="mt-4 text-gray-700 font-semibold">Sending<br>reset link...</p>
+      <p class="mt-4 text-gray-700 font-semibold">Sending link</p>
     </div>
   </div>
 {/if}
