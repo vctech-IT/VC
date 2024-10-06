@@ -15,7 +15,8 @@ declare global {
 					status: string
 					verificationToken: string;
 					lastLogin: Date;
-					lastLogout: Date
+					lastLogout: Date;
+					lastActivity: Date;
 				}
 			}
 		interface PageData {
@@ -30,7 +31,8 @@ declare global {
 				status: string;
 				verificationToken: string;
 				lastLogin: Date;
-				lastLogout: Date
+				lastLogout: Date;
+				lastActivity: Date;
 			}
 		}
 		// interface PageState {}
