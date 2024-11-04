@@ -36,9 +36,7 @@ import Header from '$lib/components/Header.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import { page } from '$app/stores';
-  import ActivityTracker from '$lib/components/ActivityTracker.svelte';
 </script>
-<ActivityTracker />
 <div class="flex h-screen bg-gray-50">
       {#if $page.data.user}
         <Sidebar />

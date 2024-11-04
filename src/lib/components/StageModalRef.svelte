@@ -21,7 +21,148 @@
 
   type Role = 'ADMIN' | 'USER' | 'ACCOUNTANT' | 'MATERIALPROCURE' | 'WAREHOUSE' | 'OPERATION' | 'MANAGER';
 
+interface LogActivityPayload {
+  salesOrderId: string;
+  username: string;
+  role: string;
+  action: string;
+  details: string;
+  category: string;
+}
 
+async function logActivity(payload: LogActivityPayload) {
+  try {
+    const response = await fetch('/api/log-activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to log activity');
+    }
+    
+    dispatch('activityLogged');
+  } catch (error) {
+    console.error('Error logging activity:', error);
+  }
+}
+
+async function logStageCompletion(stageNumber: number, stageName: string) {
+  await logActivity({
+    salesOrderId: salesOrder.salesorder_number,
+    username,
+    role: userRole,
+    action: 'Stage Completed',
+    details: `Completed stage ${stageNumber}: ${stageName}`,
+    category: 'stage_completion'
+  });
+}
+
+// Logging functions for DC form actions
+async function logDCFileAttachment(dcIndex: number, fileName: string, success: boolean, error?: string) {
+  const dc = dcBoxes[dcIndex];
+  const action = 'File Attachment';
+  const details = success 
+    ? `Successfully attached file "${fileName}" to ${dc.billType || 'DC'} ${dc.PODNo || `#${dcIndex + 1}`}`
+    : `Failed to attach file "${fileName}" to ${dc.billType || 'DC'} ${dc.PODNo || `#${dcIndex + 1}`}. Error: ${error}`;
+  
+  try {
+    await fetch('/api/log-activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        salesOrderId: salesOrder.salesorder_number,
+        username,
+        role: userRole,
+        action,
+        details,
+        status: success ? 'success' : 'error',
+        category: 'file_attachment'
+      }),
+    });
+  } catch (error) {
+    console.error('Error logging file attachment:', error);
+  }
+}
+
+async function logDCCreation(dc: DCBox, dcIndex: number) {
+  const action = 'DC Created';
+  const billType = dc.billType || 'DC';
+  const details = `Created new ${billType} #${dcIndex + 1} (${dc.PODNo || 'Pending'}) with dispatch date ${dc.DispatchDate}, delivery date ${dc.EstdDeliveryDate}, and amount ${formatCurrency(dc.dcAmount)}`;
+  
+  try {
+    await fetch('/api/log-activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        salesOrderId: salesOrder.salesorder_number,
+        username,
+        role: userRole,
+        action,
+        details,
+        category: 'dc_creation',
+        status: 'success'
+      }),
+    });
+  } catch (error) {
+    console.error('Error logging DC creation:', error);
+  }
+}
+
+async function logDCUpdate(dc: DCBox, fieldName: string, oldValue: any, newValue: any) {
+  const action = 'DC Updated';
+  const billType = dc.billType || 'DC';
+  const details = `Updated ${fieldName} from "${oldValue}" to "${newValue}" in ${billType} ${dc.PODNo}`;
+  
+  try {
+    await fetch('/api/log-activity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        salesOrderId: salesOrder.salesorder_number,
+        username,
+        role: userRole,
+        action,
+        details,
+        category: 'dc_update',
+        status: 'success'
+      }),
+    });
+  } catch (error) {
+    console.error('Error logging DC update:', error);
+  }
+}
+
+async function logReturnPickupChange(fieldName: string, oldValue: any, newValue: any) {
+  await logActivity({
+    salesOrderId: salesOrder.salesorder_number,
+    username,
+    role: userRole,
+    action: 'Return Pickup Updated',
+    details: `Updated Return Pickup ${fieldName} from "${oldValue}" to "${newValue}"`,
+    category: 'return_pickup_update'
+  });
+}
+
+async function logDCChange(dcIndex: number, fieldName: string, oldValue: any, newValue: any) {
+  await logActivity({
+    salesOrderId: salesOrder.salesorder_number,
+    username,
+    role: userRole,
+    action: 'DC Updated',
+    details: `Updated DC ${dcIndex + 1} ${fieldName} from "${oldValue}" to "${newValue}"`,
+    category: 'dc_update'
+  });
+}
 
 async function logFieldChange(fieldName: string, oldValue: any, newValue: any) {
   const action = 'Field Updated';
@@ -83,7 +224,7 @@ async function logLineItemChange(itemId: string, itemName: string, oldStatus: st
   }
 }
 
-  interface StageData {
+interface StageData {
   title: string;
   completed: boolean;
   visible: boolean;
@@ -91,33 +232,7 @@ async function logLineItemChange(itemId: string, itemName: string, oldStatus: st
 }
   let isEditing = false;
 
-  async function logActivity(action: string, details: string) {
-  try {
-    const response = await fetch('/api/log-activity', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        salesOrderId: salesOrder.salesorder_number,
-        username,
-        role: userRole,
-        action,
-        details,
-        category: 'stage_update'
-      }),
-    });
 
-    if (!response.ok) {
-      throw new Error('Failed to log activity');
-    }
-
-    // Notify parent component that a new log has been added
-    dispatch('activityLogged');
-  } catch (error) {
-    console.error('Error logging activity:', error);
-  }
-}
 
   // Define stage data with role-based edit permissions
   let stageData: StageData[] = [
@@ -847,6 +962,7 @@ async function handleSubmit(event: Event) {
 
     // Update originalData with new values
     originalData = { ...Stage0Data };
+    await logStageCompletion(0, 'Initial Setup');
   }
         }
         catch (error) {
@@ -897,6 +1013,8 @@ async function handleSubmit(event: Event) {
       });
     return;
   }
+
+  
       
       updateDCAmount(dcBoxes.length - 1);
       updateDCOrderTotal();
@@ -923,6 +1041,7 @@ async function handleSubmit(event: Event) {
       originalLineItemsStatus[item.Itemid] = item.status;
     });
   }
+  await logStageCompletion(1, 'Logistics');99
 
       await Swal.fire({
         title: 'Success',
@@ -1481,28 +1600,34 @@ function updateDCAmount(dcIndex: number) {
   let currentDCIndex: number = 0;
 
   // Function to handle file change
-  async function handleFileChange(event: Event, dcIndex: number) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
+async function handleFileChange(event: Event, dcIndex: number) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  
+  if (file) {
+    showCustomNameModal = true;
+    const extension = file.name.split('.').pop() || '';
+    customFileName = file.name.replace(`.${extension}`, '');
+    customFileExtension = extension;
+    currentDCIndex = dcIndex;
     
-      if (file) {
-        showCustomNameModal = true;
-        const extension = file.name.split('.').pop() || '';
-        customFileName = file.name.replace(`.${extension}`, '');
-        customFileExtension = extension;
-        currentDCIndex = dcIndex;
-      }
-    if (file) {
-        try{
-          const base64String = await convertFileToBase64(file);
-          dcBoxes[dcIndex].fileName = file.name;
-          dcBoxes[dcIndex].filePreviewUrl = URL.createObjectURL(file);
-          dcBoxes[dcIndex].attachment = base64String;
-        }catch (error) {
-          console.error('Error converting file to base64:', error);}
-      }
+    try {
+      const base64String = await convertFileToBase64(file);
+      dcBoxes[dcIndex].fileName = file.name;
+      dcBoxes[dcIndex].filePreviewUrl = URL.createObjectURL(file);
+      dcBoxes[dcIndex].attachment = base64String;
+      
+      // Log successful file attachment
+      await logDCFileAttachment(dcIndex, file.name, true);
+      
       dcBoxes = [...dcBoxes]; // Trigger reactivity
+    } catch (error) {
+      console.error('Error converting file to base64:', error);
+      // Log failed file attachment
+      await logDCFileAttachment(dcIndex, file.name, false, error.message);
     }
+  }
+}
 
   // Function to open preview modal
   async function openPreviewModal(file: File | null, fileUrl: string | null) {
@@ -3307,7 +3432,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 </div>
               </div>
 
-                                  <!-- Details Popup -->
+<!-- Details Popup -->
 {#if showDetailsModal && selectedDC}
 <div class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
   <div class="bg-white p-6 rounded-xl max-w-lg w-full shadow-2xl transform transition-all duration-300 ease-out scale-95 hover:scale-100">

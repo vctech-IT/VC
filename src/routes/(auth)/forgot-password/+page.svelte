@@ -1,5 +1,7 @@
+<!-- src/routes/(auth)/forgot-password/+page.svelte -->
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { goto } from '$app/navigation';
   import type { ActionData } from './$types';
   import { fade } from 'svelte/transition';
   import Swal from 'sweetalert2';
@@ -17,14 +19,20 @@
           title: 'Reset Link Sent!',
           text: 'Please check your email for password reset instructions.',
           icon: 'success',
-          confirmButtonText: 'OK'
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#3B82F6'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            goto('/login');
+          }
         });
       } else if (result.type === 'failure') {
         await Swal.fire({
           title: 'Error',
           text: result.data?.error || 'An error occurred. Please try again.',
           icon: 'error',
-          confirmButtonText: 'OK'
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#3B82F6'
         });
       }
     };
@@ -74,26 +82,52 @@
 </div>
 
 {#if loading}
-  <div transition:fade="{{ duration: 200 }}" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
-    <div class="loader-container p-8 bg-white rounded-lg shadow-xl">
-      <div class="loader"></div>
-      <p class="mt-4 text-gray-700 font-semibold">Sending link</p>
+  <div 
+    transition:fade="{{ duration: 200 }}" 
+    class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center z-50"
+  >
+    <div class="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full mx-4 text-center">
+      <div class="flex justify-center">
+        <div class="spinner">
+          <div class="double-bounce1"></div>
+          <div class="double-bounce2"></div>
+        </div>
+      </div>
+      <p class="mt-4 text-gray-700 font-medium">Sending reset link...</p>
+      <p class="mt-2 text-sm text-gray-500">Please wait a moment</p>
     </div>
   </div>
 {/if}
 
 <style>
-  .loader {
-    border: 6px solid #f3f3f3;
-    border-top: 6px solid #3498db;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
+  .spinner {
+    width: 40px;
+    height: 40px;
+    position: relative;
   }
 
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+  .double-bounce1, .double-bounce2 {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: #3B82F6;
+    opacity: 0.6;
+    position: absolute;
+    top: 0;
+    left: 0;
+    animation: sk-bounce 2.0s infinite ease-in-out;
+  }
+
+  .double-bounce2 {
+    animation-delay: -1.0s;
+  }
+
+  @keyframes sk-bounce {
+    0%, 100% { 
+      transform: scale(0.0);
+    } 
+    50% { 
+      transform: scale(1.0);
+    }
   }
 </style>

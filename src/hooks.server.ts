@@ -1,15 +1,16 @@
 import type { Handle } from '@sveltejs/kit';
 import { db } from '$lib/database';
 
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
-
 export const handle: Handle = async ({ event, resolve }) => {
+  // get cookies from browser
   const session = event.cookies.get('session');
 
   if (!session) {
+    // if there is no session load page as normal
     return await resolve(event);
   }
 
+  // find the user based on the session
   const user = await db.user.findUnique({
     where: { userAuthToken: session },
     select: { 
@@ -20,43 +21,39 @@ export const handle: Handle = async ({ event, resolve }) => {
       role: { select: { name: true } },
       createdAt: true,
       image: true,
-      lastActivity: true
+      lastLogin: true
     }
   });
 
+  // if user exists set events.locals and update lastLogin
   if (user) {
-    const now = new Date();
-    const lastActivity = user.lastActivity ? new Date(user.lastActivity) : null;
+    event.locals.user = {
+      id: user.id,
+      name: user.username,
+      email: user.email,
+      phoneNo: user.phoneNo,
+      role: user.role.name,
+      createdAt: user.createdAt,
+      image: user.image,
+      lastLogin: user.lastLogin,
+      lastLogout: user.lastLogout
+    };
 
-    if (!lastActivity || now.getTime() - lastActivity.getTime() > SESSION_TIMEOUT) {
-      // User has timed out, log them out
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    if (!user.lastLogin || user.lastLogin < fiveMinutesAgo) {
       await db.user.update({
         where: { id: user.id },
-        data: { lastLogout: now }
-      });
-      event.cookies.set('session', '', {
-        path: '/',
-        expires: new Date(0),
-      });
-    } else {
-      // User is active, update their session
-      event.locals.user = {
-        id: user.id,
-        name: user.username,
-        email: user.email,
-        phoneNo: user.phoneNo,
-        role: user.role.name,
-        createdAt: user.createdAt,
-        image: user.image,
-        lastActivity: lastActivity
-      };
-
-      await db.user.update({
-        where: { id: user.id },
-        data: { lastActivity: now }
+        data: { lastLogin: new Date() }
       });
     }
+
+    // Update lastLogin
+    await db.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
+    });
   }
 
+  // load page as normal
   return await resolve(event);
 };

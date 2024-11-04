@@ -1,4 +1,5 @@
-import { fail } from '@sveltejs/kit';
+// src/routes/(auth)/forgot-password/+page.server.ts
+import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
 import { db } from '$lib/database';
 import crypto from 'crypto';
@@ -10,14 +11,20 @@ export const actions: Actions = {
     const email = data.get('email')?.toString().trim();
 
     if (!email) {
-      return fail(400, { error: 'Please provide an email address.' });
+      return fail(400, { 
+        error: 'Please provide an email address.',
+        type: 'failure'
+      });
     }
 
     try {
       const user = await db.user.findUnique({ where: { email } });
-
+      
       if (!user) {
-        return fail(400, { error: 'No account found with this email.' });
+        return fail(400, { 
+          error: 'No account found with this email.',
+          type: 'failure'
+        });
       }
 
       const resetToken = crypto.randomBytes(32).toString('hex');
@@ -34,11 +41,18 @@ export const actions: Actions = {
       await sendPasswordResetEmail(email, resetToken);
 
       return {
-        success: true
+        type: 'success',
+        status: 200,
+        data: {
+          message: 'Password reset email sent successfully'
+        }
       };
     } catch (error) {
       console.error('Password reset error:', error);
-      return fail(500, { error: 'An error occurred. Please try again later.' });
+      return fail(500, { 
+        error: 'An error occurred. Please try again later.',
+        type: 'failure'
+      });
     }
   }
 };

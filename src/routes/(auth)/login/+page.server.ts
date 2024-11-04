@@ -61,7 +61,7 @@ const login: Action = async ({ cookies, request }) => {
       httpOnly: true,
       sameSite: 'strict',
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
+      maxAge: 60 * 60 * 24 , // 1 day
     })
 
     console.log(`User logged in successfully: ${username}`);

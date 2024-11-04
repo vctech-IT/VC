@@ -1,6 +1,7 @@
 <!-- dashboard/+page.svelte -->
 <script lang="ts">
-import { onMount } from 'svelte';
+import { onMount, onDestroy } from 'svelte';
+import { browser } from '$app/environment';
 import Chart from 'chart.js/auto';
 import DateRangePicker from '$lib/components/DateRangePicker.svelte';
 import KPICard from '$lib/components/KPICard.svelte';
@@ -18,6 +19,23 @@ import { quintOut } from 'svelte/easing';
 import {  Filter } from 'lucide-svelte';
 import { ArrowUpDown } from 'lucide-svelte';
 import { ChevronDown, ChevronUp, Search } from 'lucide-svelte';
+
+
+
+interface DashboardState {
+  activeTab: number;
+  orderStatus: string;
+  selectedPM: string;
+  showModal: boolean;
+  selectedClient: string | null;
+  selectedCategory: string | null;
+  searchTerm: string;
+  sortColumn: string;
+  sortDirection: 'asc' | 'desc';
+  filterCategory: string;
+  modalContent: ModalContent;
+  dateRange: { start: string | null; end: string | null };
+}
 
 let totalOrders = 0;
 let activeTab = 0;
@@ -79,6 +97,7 @@ function toggleSort(column: string) {
     sortColumn = column;
     sortDirection = 'asc';
   }
+  saveState();
 }
 
 let agingData: {
@@ -93,8 +112,27 @@ let agingData: {
   }>;
 } = { summary: {}, details: [] };
 
-onMount(async () => {
-  await fetchDashboardData();
+onMount(() => {
+  loadState();
+  if (!modalContent.orderDetails.length) {
+    fetchDashboardData();
+  }
+});
+
+if (browser) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      loadState();
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    saveState();
+  });
+}
+
+onDestroy(() => {
+  saveState();
 });
 
 interface ModalContent {
@@ -134,6 +172,68 @@ let modalContent: ModalContent = {
 
 };
 
+function loadState() {
+  if (!browser) return;
+  
+  try {
+    const savedState = localStorage.getItem('dashboardState');
+    if (savedState) {
+      const state: DashboardState = JSON.parse(savedState);
+      
+      // Restore all state values
+      activeTab = state.activeTab;
+      orderStatus = state.orderStatus;
+      selectedPM = state.selectedPM;
+      showModal = state.showModal;
+      selectedClient = state.selectedClient;
+      selectedCategory = state.selectedCategory;
+      searchTerm = state.searchTerm;
+      sortColumn = state.sortColumn;
+      sortDirection = state.sortDirection;
+      filterCategory = state.filterCategory;
+      modalContent = state.modalContent;
+      
+      // Restore dateRange if it exists
+      if (state.dateRange) {
+        dateRange = state.dateRange;
+      }
+      
+      // Immediately fetch dashboard data with restored filters
+      fetchDashboardData();
+    }
+  } catch (error) {
+    console.error('Error loading dashboard state:', error);
+    // If there's an error, clear the corrupted state
+    localStorage.removeItem('dashboardState');
+  }
+}
+
+function saveState() {
+  if (!browser) return;
+  
+  try {
+    const state: DashboardState = {
+      activeTab,
+      orderStatus,
+      selectedPM,
+      showModal,
+      selectedClient,
+      selectedCategory,
+      searchTerm,
+      sortColumn,
+      sortDirection,
+      filterCategory,
+      modalContent,
+      dateRange
+    };
+    
+    localStorage.setItem('dashboardState', JSON.stringify(state));
+  } catch (error) {
+    console.error('Error saving dashboard state:', error);
+  }
+}
+
+
 function sortStages(a: any, b: any) {
   return a.stage - b.stage;
 }
@@ -146,6 +246,7 @@ function showSONumbers(item: string, type: 'client' | 'category') {
     selectedCategory = selectedCategory === item ? null : item;
     selectedClient = null;
   }
+  saveState();
 }
 
 
@@ -179,8 +280,9 @@ function getAgingColor(isOverdue: boolean): string {
   return isOverdue ? 'bg-red-500 text-white' : 'bg-green-500 text-white';
 }
 
-function handleOrderStatusChange(event: Event) {
+function handleOrderStatusChange(event) {
   orderStatus = (event.target as HTMLSelectElement).value;
+  saveState();
   fetchDashboardData();
 }
 
@@ -328,11 +430,13 @@ async function handleCardClick(event: any) {
       totalOrders: value, 
       totalSum: 0, 
       categorizedData: { byClient: {}, byCategory: {} },
-      soNumbers: [] ,
-      agingData: agingData.details
+      soNumbers: [],
+      agingData: agingData.details,
+      orderDetails: []
     };
   }
   showModal = true;
+  saveState();
 }
 
 function processModalData(orders: any[], title: string, totalOrders: number): ModalContent {
@@ -396,6 +500,7 @@ function getStageTitle(stage: number): string {
 
 function closeModal() {
   showModal = false;
+  saveState();
 }
 
   interface Order {
@@ -426,10 +531,20 @@ function formatDate(date: string): string {
 }
 
 function handlePMFilterChange() {
+  saveState();
   fetchDashboardData();
 }
 
   let isLoading = false;
+
+onDestroy(() => {
+  if (browser) {
+    saveState();
+    document.removeEventListener('visibilitychange', loadState);
+    window.removeEventListener('beforeunload', saveState);
+  }
+});
+
 </script>
 
 <div class="min-h-screen bg-slate-100 p-8">

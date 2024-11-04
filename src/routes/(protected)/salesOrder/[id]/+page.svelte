@@ -1,5 +1,6 @@
+<!-- src/routes/salesOrder/[id]/+page.svelte -->
 <script lang="ts">
- import { page } from '$app/stores';
+    import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import type { PageData } from './$types';
     import type { SalesOrder } from '$lib/types';
@@ -8,7 +9,7 @@
     import { fade } from 'svelte/transition';
     import StageUpdateModal from '$lib/components/StageUpdateModal.svelte';
     import { writable } from 'svelte/store';
-    import { ArrowLeft, Download, ChevronDown } from 'svelte-lucide';
+    import { ArrowLeft, Download, ChevronDown, ChevronUp } from 'svelte-lucide';
     import { logStore, type LogEntry } from '../../../../lib/stores/LogStore';
     import { fly } from 'svelte/transition';
     import { Clock, User, Activity } from 'svelte-lucide';
@@ -16,11 +17,12 @@
 	  import  StageModal  from '$lib/components/StageModalRef.svelte';
     import type { ActivityLog } from '$lib/types/activityLog';
     import { ChevronLeft, ChevronRight } from 'svelte-lucide';
+    import ChatBox from '$lib/components/Chatbox.svelte';
 
     export let data: PageData;
 
   let currentPage = 1;
-  let logsPerPage = 10;
+  let logsPerPage = 5;
 
 
 
@@ -80,14 +82,24 @@
   }
 
   function formatLogDate(date: Date) {
-  return new Date(date).toLocaleString('en-GB', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
+    return new Date(date).toLocaleString('en-GB', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+    function getActionColor(category: string): string {
+    switch (category) {
+      case 'line_item_update': return 'bg-blue-500';
+      case 'field_update': return 'bg-green-500';
+      case 'customer_interaction': return 'bg-yellow-500';
+      case 'payment_update': return 'bg-purple-500';
+      case 'shipment_update': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  }
 
   function getCurrentStageText(stage: number | undefined): string {
     switch(stage) {
@@ -142,6 +154,13 @@
             minimumFractionDigits: 2
         }).format(amount);
     }
+
+  let expandedCategories: Record<string, boolean> = {};
+
+  function toggleCategory(category: string) {
+    expandedCategories[category] = !expandedCategories[category];
+    expandedCategories = expandedCategories; // Trigger reactivity
+  }
 
     function getStatusColor(status: string) {
         switch (status.toLowerCase()) {
@@ -266,25 +285,22 @@ onMount(() => {
     };
 });
 
-  function getActionColor(category: string): string {
-    switch (category) {
-      case 'order_status_change': return 'bg-blue-500';
-      case 'document_upload': return 'bg-green-500';
-      case 'customer_interaction': return 'bg-yellow-500';
-      case 'payment_update': return 'bg-purple-500';
-      case 'shipment_update': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  }
 
-    async function refreshActivityLogs() {
+  $: groupedLogs = paginatedLogs.reduce((acc, log) => {
+    if (!acc[log.category]) {
+      acc[log.category] = [];
+    }
+    acc[log.category].push(log);
+    return acc;
+  }, {} as Record<string, ActivityLog[]>);
+
+  async function refreshActivityLogs() {
     const response = await fetch(`/api/activity-logs/${salesOrder.salesorder_number}`);
     if (response.ok) {
       const newLogs = await response.json();
       activityLogs = newLogs;
     }
   }
-
   
 </script>
 
@@ -308,7 +324,7 @@ onMount(() => {
             <span class="px-4 py-2 rounded-full text-sm font-medium bg-white {getStatusColor(salesOrder.status)}">
                 {salesOrder.status}
             </span>
-            {#if salesOrder.status == 'open' && !data.isDropped}
+            {#if salesOrder.status == 'open' || salesOrder.status == 'invoiced' || salesOrder.status == 'partially_invoiced'}
             <button 
                 class="bg-white text-blue-600 hover:bg-blue-50 font-medium py-2 px-4 rounded-full shadow-sm hover:shadow transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex items-center"
                 on:click={toggleStageUpdateModal}
@@ -455,41 +471,44 @@ onMount(() => {
 
 <!-- Activity Logs -->
 <div class="bg-white p-6 rounded-lg shadow-lg mt-8">
-  <h2 class="text-xl font-semibold text-gray-800 mb-6">Activity Logs</h2>
+  <h2 class="text-2xl font-semibold text-gray-800 mb-6">Activity Logs</h2>
   
   {#if activityLogs && activityLogs.length > 0}
-    <div class="relative">
-      <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-
-      {#each paginatedLogs as log (log.id)}
-        <div class="mb-8 flex" transition:fade="{{ duration: 300 }}">
-          <div class="absolute left-4 w-3 h-3 rounded-full mt-1.5 -ml-1.5 {getActionColor(log.category)}"></div>
-          
-          <div class="ml-12">
-            <div class="flex items-center mb-1">
-              <span class="font-medium text-gray-900 mr-2">{log.username}</span>
-              <span class="text-sm text-gray-500">({log.role})</span>
+    {#each Object.entries(groupedLogs) as [category, logs]}
+      <div class="mb-8">
+        <h3 class="text-lg font-medium text-gray-700 mb-4 capitalize">{category.replace('_', ' ')} Updates</h3>
+        <div class="relative">
+          <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+          {#each logs as log (log.id)}
+            <div class="mb-6 flex" transition:fade="{{ duration: 300 }}">
+              <div class="absolute left-4 w-3 h-3 rounded-full mt-1.5 -ml-1.5 {getActionColor(log.category)}"></div>
+              <div class="ml-12">
+                <div class="flex items-center mb-1">
+                  <span class="font-medium text-gray-900 mr-2">{log.username}</span>
+                  <span class="text-sm text-gray-500">({log.role})</span>
+                </div>
+                <p class="text-gray-700 mb-2">{log.action}</p>
+                {#if log.details}
+                  <p class="text-sm text-gray-600 mb-2">{log.details}</p>
+                {/if}
+                <span class="text-sm text-gray-500">{formatLogDate(log.timestamp)}</span>
+              </div>
             </div>
-            <p class="text-gray-700 mb-2">{log.action}</p>
-            {#if log.details}
-              <p class="text-sm text-gray-600 mb-2">{log.details}</p>
-            {/if}
-            <span class="text-sm text-gray-500">{formatLogDate(log.timestamp)}</span>
-          </div>
+          {/each}
         </div>
-      {/each}
-    </div>
-    <div class="flex justify-between items-center mt-4">
+      </div>
+    {/each}
+    <div class="flex justify-between items-center mt-8">
       <button 
-        class="px-4 py-2 bg-blue-500 text-white rounded-md disabled:opacity-50"
+        class="px-4 py-2 bg-blue-500 text-white rounded-md disabled:opacity-50 transition-opacity duration-200"
         on:click={prevPage}
         disabled={currentPage === 1}
       >
         <ChevronLeft size={20} />
       </button>
-      <span>Page {currentPage} of {totalPages}</span>
+      <span class="text-gray-600">Page {currentPage} of {totalPages}</span>
       <button 
-        class="px-4 py-2 bg-blue-500 text-white rounded-md disabled:opacity-50"
+        class="px-4 py-2 bg-blue-500 text-white rounded-md disabled:opacity-50 transition-opacity duration-200"
         on:click={nextPage}
         disabled={currentPage === totalPages}
       >
@@ -500,6 +519,7 @@ onMount(() => {
     <p class="text-gray-500 italic">No activity logs available.</p>
   {/if}
 </div>
+
        
 
   <!-- <StageUpdateModal
@@ -549,3 +569,9 @@ username={data.user.name}
     on:close={() => showStageUpdateModal = false}
   />
 {/if}
+
+<ChatBox 
+  salesOrderNumber={salesOrder.salesorder_number}
+  salesOrderId={salesOrder.salesorder_id}
+  currentUsername={currentUsername}
+/>

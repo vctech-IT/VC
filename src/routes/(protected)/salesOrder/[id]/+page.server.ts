@@ -1,4 +1,4 @@
-// src/routes/sales-order/[id]/+page.server.ts
+// src/routes/salesOrder/[id]/+page.server.ts
 import type { PageServerLoad } from './$types';
 import type { SalesOrder } from '$lib/types';
 import { redirect } from '@sveltejs/kit';
