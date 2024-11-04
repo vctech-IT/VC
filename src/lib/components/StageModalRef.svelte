@@ -8,6 +8,9 @@
   import { fade, fly, scale, slide } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
   import { MoreVertical, AlertCircle, CheckCircle, Trash2, Paperclip, Eye, Edit } from 'lucide-svelte';
+  import { jsPDF } from 'jspdf';
+  import 'jspdf-autotable';
+  import NotoSansRegular from './NotoSans-Regular.ttf';
 
   // Add these properties
   export let username: string;
@@ -813,12 +816,13 @@ onMount(() => {
   
 
   let dcOrderTotal = { subtotal: 0, igst: 0, total: 0 };
+  let userEnabledPartialDelivery = false;
   let frozenLineItems: { [key: string]: boolean } = {};
   let dcCounter = 1;
 
   // Reactive declarations
   $: allStatusesFilled = lineItemsWithStatus.every(item => item.status !== '');
-  $: partialDelivery = lineItemsWithStatus.some(item => item.status === 'not_available');
+  $: partialDelivery = userEnabledPartialDelivery && anyItemNotAvailable;
 
   // Lifecycle hooks
   onMount(() => {
@@ -1251,6 +1255,12 @@ let isSaveDisabled = false;
       return;
     }
     isSaveDisabled = true;
+
+    // Clear notifications
+    showLogisticsAlert = false;
+    newlyAvailableItems = [];
+    userEnabledPartialDelivery = false;
+
     // If all items are Not Available, handle it differently
   if (allItemsNotAvailable) {
     lineItemsWithStatus.forEach(item => {
@@ -1280,6 +1290,10 @@ let isSaveDisabled = false;
     // Set the DC amount to the current total before saving if it's not already saved
     if (!currentDC.isSaved) {
         currentDC.dcAmount = dcOrderTotal.subtotal;
+      }
+     if (currentDC.isSaved) {
+    // Generate and download PDF after saving
+    generateAndDownloadPDF(currentDC);
     }
     try {
       await fetch(`/submit-stage`, {
@@ -1321,6 +1335,38 @@ let isSaveDisabled = false;
   updateTotalSavedDCAmount();
   saveCurrentState();
   canAccessNextStage = true;
+    
+  if (partialDelivery && userEnabledPartialDelivery) {
+    const remainingUnsavedItems = lineItemsWithStatus.filter(item => 
+      !frozenLineItems[item.id] && 
+      (item.status === 'available' || item.status === 'need_to_purchase')
+    );
+
+    if (remainingUnsavedItems.length === 0) {
+      // All available/purchasable items have been saved in DCs, move to Material to Procure stage
+      await Swal.fire({
+        title: 'Moving to Material to Procure',
+        text: 'All available items have been processed. Moving to Material to Procure stage for remaining items.',
+        icon: 'info',
+        confirmButtonText: 'OK'
+      });
+      moveToMaterialToProcureStage();
+    } else {
+      await Swal.fire({
+        title: 'DC Saved',
+        text: 'DC has been saved successfully.',
+        icon: 'success',
+        confirmButtonText: 'OK'
+      });
+    }
+  } else {
+    await Swal.fire({
+      title: 'Success',
+      text: 'DC saved successfully.',
+      icon: 'success',
+      confirmButtonText: 'OK'
+    });
+  }
   if (allItemsNotAvailable) {
     await Swal.fire("All items are marked as Not Available. You cannot add more DCs.");
       } else {
@@ -1386,24 +1432,40 @@ async function handleSaveAllNotAvailable() {
       console.error('Error:', error);
     }
   
-  // Show confirmation message
-  if (notAvailableItems.length > 0) {
-    alert(`${notAvailableItems.length} item(s) have been marked as Not Available and will proceed to Material to Procure stage.`);
+// Show confirmation message
+if (notAvailableItems.length > 0) {
+    await Swal.fire({
+      title: 'Items Not Available',
+      text: `${notAvailableItems.length} item(s) have been marked as Not Available and will proceed to Material to Procure stage.`,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
   }
-
-  if (notRequiredItems.length > 0) {
-    alert(`${notRequiredItems.length} item(s) have been marked as Not Required and will be removed from the order.`);
+  
+  // Check if all items are marked as "not required"
+  if (notRequiredItems.length === lineItemsWithStatus.length) {
+    await Swal.fire({
+      title: 'All Items Not Required',
+      text: 'All items have been marked as Not Required. The current stage will be completed and we will move to the next stage.',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
+    
+    stageData[currentStage].completed = true;
+    
+  } else if (notRequiredItems.length > 0) {
+    await Swal.fire({
+      title: 'Some Items Not Required',
+      text: `${notRequiredItems.length} item(s) have been marked as Not Required and will be removed from the order.`,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
   }
   // Save the current state
   saveCurrentState();
   
   // Determine next action based on remaining items
-  if (notAvailableItems.length > 0) {
-    goToNextStage();
-  }
-  if (notRequiredItems.length > 0){
-    stageData[currentStage].completed = true;
-    // Automatically move to the next stage
+  if (notAvailableItems.length > 0 && notRequiredItems.length !== lineItemsWithStatus.length) {
     goToNextStage();
   }
 
@@ -1626,8 +1688,146 @@ async function handleFileChange(event: Event, dcIndex: number) {
       // Log failed file attachment
       await logDCFileAttachment(dcIndex, file.name, false, error.message);
     }
+<<<<<<< HEAD
   }
 }
+=======
+    function formatCurrencyForPDF(amount: number): string {
+  // Use the Unicode character for the Indian Rupee symbol
+  return `\u20B9 ${amount.toFixed(2)}`;
+}
+
+function generateAndDownloadPDF(dc: DCBox) {
+  try {
+    const doc = new jsPDF();
+
+    // Add the Noto Sans font to the PDF
+    doc.addFont(NotoSansRegular, 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+
+    // Header
+    doc.setFontSize(16);
+    doc.setTextColor(44, 62, 80);
+    doc.text(dc.billType === 'E-way' ? 'E-way Bill Details' : 'DC Details', 105, 20, { align: 'center' });
+
+    // Decorative line
+    doc.setDrawColor(52, 152, 219);
+    doc.setLineWidth(0.5);
+    doc.line(20, 25, 190, 25);
+
+    // DC details
+    doc.setFontSize(12);
+    doc.setTextColor(52, 73, 94);
+
+    const detailsStart = 40;
+    const detailsGap = 10;
+
+    function addDetail(label: string, value: string, index: number) {
+      const y = detailsStart + (index * detailsGap);
+      doc.setFontSize(12);
+      doc.text(`${label}:`, 20, y);
+      doc.setFontSize(11);
+      doc.text(value, 70, y);
+    }
+
+    addDetail(`${dc.billType} Number`, dc.customName, 0);
+    addDetail('POD Number', dc.trackingNo, 1);
+    addDetail('Dispatched Date', dc.dispatchedDate, 2);
+    addDetail('Delivery Date', dc.deliveryDate, 3);
+    addDetail(`${dc.billType} Amount`, formatCurrencyForPDF(dc.dcAmount), 4);
+
+    // Line items table
+    const tableData = dc.lineItemIndices.map((itemIndex, i) => {
+      const item = lineItemsWithStatus[itemIndex];
+      return [
+        (i + 1).toString(),
+        item.name,
+        `${item.quantity} ${item.unit}`,
+        formatCurrencyForPDF(item.rate),
+        formatCurrencyForPDF(item.item_total),
+        item.status === 'need_to_purchase' ? 'Need to purchase locally' : 'Available'
+      ];
+    });
+
+    (doc as any).autoTable({
+      startY: detailsStart + (5 * detailsGap) + 10,
+      head: [['No.', 'Item', 'Quantity', 'Rate', 'Amount', 'Status']],
+      body: tableData,
+      headStyles: { fillColor: [52, 152, 219], textColor: 255 },
+      alternateRowStyles: { fillColor: [242, 242, 242] },
+      styles: { font: 'NotoSans', fontSize: 10 },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 35 }
+      },
+    });
+
+    // Save the PDF
+    doc.save(`${dc.billType}_${dc.customName}.pdf`);
+    console.log('PDF generated successfully');
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('An error occurred while generating the PDF. Please try again.');
+  }
+}
+
+// Function to handle partial delivery toggle
+function togglePartialDelivery() {
+  userEnabledPartialDelivery = !userEnabledPartialDelivery;
+}
+
+// Function to save and go to next stage
+async function saveAndGoToNextStage() {
+  // Save the current state
+  saveCurrentState();
+  
+  // Move to the next stage (Material to Procure)
+  notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available');
+  lineItemsWithStatus = [...lineItemsWithStatus];
+  try {
+      await fetch(`/submit-stage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage: currentStage, 
+        data: {
+        lineItems: lineItemsWithStatus
+      } })});
+    }catch (error) {
+      console.error('Error:', error);
+    }
+    goToNextStage();
+
+    if (currentStage < stageData.length - 1) {
+    do {
+      currentStage++;
+    } while (currentStage < stageData.length && !stageData[currentStage].visible);
+  }
+  try {
+        await fetch('/update-current-stage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                SONumber: Stage0Data.SONumber, // Assuming SONumber is in Stage0Data
+                currentStage: currentStage // Update to the next stage
+            })
+        });
+    } catch (error) {
+        console.error('Error updating current stage:', error);
+    }
+
+  
+  await Swal.fire({
+    title: 'Saved!',
+    text: 'Moving to Material to Procure stage.',
+    icon: 'success',
+    confirmButtonText: 'OK'
+  });
+}
+>>>>>>> 1f34afab4bebcd1056a1c362e5e0256bd0f3b494
 
   // Function to open preview modal
   async function openPreviewModal(file: File | null, fileUrl: string | null) {
@@ -1748,6 +1948,34 @@ async function handleFileChange(event: Event, dcIndex: number) {
   }
   }
 
+
+    // For downloading from a URL (Stage 1)
+    async function downloadFileFromUrl(url: string | null, fileName: string) {
+    if (url) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else {
+      await Swal.fire({
+        title: 'Oops...',
+        text: 'No file available for download',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
+      console.error('No file available for download');
+    }
+  }
+
+  // Function to go to next page
+  function goToNextPage() {
+    if (currentStage < stageData.length - 1) {
+      currentStage++;
+    }
+  }
 
   // Stage 2 related functions
   let showSaveButton = false;
@@ -2582,11 +2810,7 @@ function updateDeliveryDateMin() {
   }
 
   $: {
-  if (partialDelivery) {
-    stageData[2].visible = true;
-  } else {
-    stageData[2].visible = false;
-  }
+    stageData[2].visible = lineItemsWithStatus.some(item => item.status === 'not_available');
 }
 $: allItemsNotAvailable = lineItemsWithStatus.every(item => item.status === 'not_available');
 $: allItemsNotAvailableOrNotRequired = lineItemsWithStatus.every(item => 
@@ -2598,6 +2822,19 @@ $: canSubmitLogistics = allLineItemsFrozen() && allStatusesFilled && dcBoxes.eve
 $: visibleStages = (isDropped || isMonitoring) 
     ? stageData.filter(stage => stage.completed)
     : stageData;
+
+    $: anyItemNotAvailable = lineItemsWithStatus.some(item => item.status === 'not_available');
+
+$: allItemsAvailableOrPurchaseOrNotRequired = lineItemsWithStatus.every(item => 
+  item.status === 'available' || item.status === 'need_to_purchase' || item.status === 'not_required'
+);
+
+$: showDCBoxDetails = (allItemsAvailableOrPurchaseOrNotRequired && !anyItemNotAvailable) || 
+                      (partialDelivery && userEnabledPartialDelivery && anyItemNotAvailable);
+
+$: canAddMoreDC = lineItemsWithStatus.some(item => item.status === 'available' || item.status === 'need_to_purchase');
+
+
 
     let showDetailsModal = false;
     let selectedDC: DCBox | null = null;
@@ -3278,16 +3515,22 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           </div>
           <!-- New reactive statement to check if all items are Not Available or Not Required -->
   
-        <!-- Partial Delivery toggle -->
-  {#if lineItemsWithStatus.some(item => item.status === 'not_available')}
-  <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-    <label class="inline-flex items-center cursor-pointer">
-      <input type="checkbox" bind:checked={partialDelivery} class="form-checkbox h-5 w-5 text-blue-600 transition duration-150 ease-in-out">
-      <span class="ml-2 text-gray-700 font-medium">Enable Partial Delivery</span>
-    </label>
-    <p class="mt-2 text-sm text-gray-600">Check this option if you want to proceed with partial delivery of available items.</p>
-  </div>
-{/if}
+       <!-- Partial Delivery toggle -->
+       {#if anyItemNotAvailable}
+       <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+         <label class="inline-flex items-center cursor-pointer">
+           <input 
+             type="checkbox" 
+             bind:checked={userEnabledPartialDelivery} 
+             class="form-checkbox h-5 w-5 text-blue-600 transition duration-150 ease-in-out"
+           >
+           <span class="ml-2 text-gray-700 font-medium">Enable Partial Delivery</span>
+         </label>
+         <p class="mt-2 text-sm text-gray-600">
+           Check this option to allow partial delivery of available items.
+         </p>
+       </div>
+     {/if}
 
 
 <!-- DC Order Total section -->
@@ -3340,6 +3583,13 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
     <h4 class="text-lg font-bold mb-2 inline-block mr-2">Current Unsaved Total:</h4>
     <p class="inline-block">{formatCurrency(dcOrderTotal.subtotal)}</p>
   </div> -->
+  {#if anyItemNotAvailable && !userEnabledPartialDelivery}
+  <div class="mt-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
+    <p class="font-bold">Some items are not available.</p>
+    <p>Enable partial delivery to create DCs for available items, or wait until all items become available.</p>
+  </div>
+{/if}
+{#if showDCBoxDetails}
         {#each dcBoxes as dc, index}
               <div class="bg-white bg-opacity-60 p-8 mt-4 rounded-xl shadow-lg mb-10 relative backdrop-blur-sm border border-gray-200 hover:shadow-xl transition-shadow duration-300">
                 {#if !dc.isSaved && index !== 0}
@@ -3585,6 +3835,15 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 </div>
               </div>
               {/if}
+              {#if dc.isSaved}
+              <button 
+                type="button" 
+                on:click={() => generateAndDownloadPDF(dc)}
+                class="px-3 py-1 text-sm text-purple-600 hover:text-purple-800 border border-purple-600 rounded-md transition-colors duration-200"
+              >
+                Download DC PDF
+              </button>
+            {/if}
                 </div>
                 {#if showCustomNameModal}
                 <div class="fixed z-10 inset-0 overflow-y-auto">
@@ -3672,7 +3931,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   
   <div class="flex justify-between mt-4">
   <div class="flex space-x-2">
-    {#if moveStage >= currentStage}
+    {#if moveStage >= currentStage && !dcBoxes[dcBoxes.length - 1].isSaved}
     <button 
       type="button" 
       on:click={handleSave} 
@@ -3682,7 +3941,8 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       Save
     </button>
     {/if}
-    {#if !allItemsNotAvailable && lineItemsWithStatus.length>1}
+    {#if (partialDelivery && userEnabledPartialDelivery && anyItemNotAvailable) || 
+         (!dcBoxes[dcBoxes.length - 1].isSaved && canAddMoreDC)}
         <button 
           type="button" 
           on:click={addMoreDC} 
@@ -3691,9 +3951,21 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           Add More +
         </button>
       {/if}
+    </div>
+    </div>
+    {:else if anyItemNotAvailable}
+    <!-- Show save button to move to next stage -->
+    <div class="mt-6">
+      <button 
+        type="button" 
+        on:click={saveAndGoToNextStage} 
+        class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
+      >
+        Save and Go to Material to Procure
+      </button>
   </div>
-</div>
-{/if}
+  {/if}
+  {/if}
 
 {:else if moveStage === 2}
 <!-- Material to Procure stage content -->
