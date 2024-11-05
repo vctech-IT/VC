@@ -10,6 +10,8 @@
   import { MoreVertical, AlertCircle, CheckCircle, Trash2, Paperclip, Eye, Edit } from 'lucide-svelte';
   import { jsPDF } from 'jspdf';
   import 'jspdf-autotable';
+  import { loading } from '$lib/stores/Loadings';
+  import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
   import NotoSansRegular from './NotoSans-Regular.ttf';
 
   // Add these properties
@@ -19,14 +21,12 @@
   export let data: PageData;
   export let salesOrder: SalesOrder;
   const dispatch = createEventDispatcher();
+  const STORAGE_KEY = 'lineItemsStatus';
   let originalData: any = {};
   let originalLineItemsStatus: { [key: string]: string } = {};
 
   type Role = 'ADMIN' | 'USER' | 'ACCOUNTANT' | 'MATERIALPROCURE' | 'WAREHOUSE' | 'OPERATION' | 'MANAGER';
-
-
-
-async function logFieldChange(fieldName: string, oldValue: any, newValue: any) {
+  async function logFieldChange(fieldName: string, oldValue: any, newValue: any) {
   const action = 'Field Updated';
   const details = `Updated ${fieldName} from "${oldValue}" to "${newValue}"`;
   
@@ -93,7 +93,6 @@ async function logLineItemChange(itemId: string, itemName: string, oldStatus: st
   editableRoles: Role[];
 }
   let isEditing = false;
-
   async function logActivity(action: string, details: string) {
   try {
     const response = await fetch('/api/log-activity', {
@@ -194,8 +193,6 @@ onMount(async () => {
     notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available')
   }})
 
-
-
  if ( currentStage === 0) {
   currentStage = moveStage= 0;
   Stage0Data = {
@@ -255,7 +252,7 @@ onMount(async () => {
       ScheduleDate: '',
       MobNo: '',
       VendorName: '',
-      Remark: '',
+      Remark: [],
       Report: '',
       ReportName:'',
       Ticketid: '',
@@ -348,7 +345,7 @@ if ( currentStage === 1) {
       ScheduleDate: '',
       MobNo: '',
       VendorName: '',
-      Remark: '',
+      Remark: [],
       Report: '',
       ReportName:'',
       Ticketid: '',
@@ -397,7 +394,7 @@ if ( currentStage === 2) {
       ScheduleDate: '',
       MobNo: '',
       VendorName: '',
-      Remark: '',
+      Remark: [],
       Report: '',
       ReportName:'',
       Ticketid: '',
@@ -446,7 +443,7 @@ if ( currentStage === 3) {
       ScheduleDate: '',
       MobNo: '',
       VendorName: '',
-      Remark: '',
+      Remark: [],
       Report: '',
       ReportName:'',
       Ticketid: '',
@@ -539,8 +536,7 @@ if ( currentStage === 5) {
     isEditing2: true
   }
 }
-
-  onMount(() => {
+onMount(() => {
   originalData = { ...Stage0Data };
   });
 
@@ -693,6 +689,39 @@ function updateMinDate() {
   minDate = new Date().toISOString().split('T')[0];
 }
 
+    // Initialize with saved data immediately LOCAL STORAGE
+    function initializeWithSavedData(items: LineItem[]): LineItem[] {
+        if (typeof window === 'undefined') return items; // Handle SSR
+        
+        const savedStatuses = localStorage.getItem(STORAGE_KEY);
+        if (savedStatuses) {
+            const statusMap = JSON.parse(savedStatuses);
+            return items.map(item => ({
+                ...item,
+                status: statusMap[item.Itemid] || item.status || ''
+            }));
+        }
+        return items;
+    }
+
+        // Initialize the data immediately
+        $: if (lineItemsWithStatus.length > 0) {
+        lineItemsWithStatus = initializeWithSavedData(lineItemsWithStatus);
+    }
+
+        // Save changes to localStorage whenever status changes
+    function handleStatusChange(index: number, newStatus: string) {
+        lineItemsWithStatus[index].status = newStatus;
+        const statusMap = lineItemsWithStatus.reduce((acc, item) => ({
+            ...acc,
+            [item.Itemid]: item.status
+        }), {});
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(statusMap));
+    }
+
+
+    
+
 onMount(() => {
   updateMinDate();
   const interval = setInterval(updateMinDate, 60000); // Update every minute
@@ -743,6 +772,7 @@ function goToPreviousStage() {
 async function handleSubmit(event: Event) {
     event.preventDefault();
     if (currentStage === 1) {
+      
     if (!allLineItemsFrozen()) {
       await Swal.fire({
         title: 'Oops...',
@@ -813,6 +843,8 @@ async function handleSubmit(event: Event) {
   }
 
   async function confirmSubmit() {
+    try {
+    loading.show('Submitting stage...');
     showConfirmationPopup = false;
     lastSubmittedTimes[currentStage] = getCurrentDateTime();
     // Set the start time for the next stage
@@ -905,7 +937,7 @@ async function handleSubmit(event: Event) {
       updateDCAmount(dcBoxes.length - 1);
       updateDCOrderTotal();
       saveCurrentState();
-    const changedLineItems = lineItemsWithStatus.filter(item => 
+      const changedLineItems = lineItemsWithStatus.filter(item => 
     item.status !== originalLineItemsStatus[item.Itemid]
   );
 
@@ -927,7 +959,6 @@ async function handleSubmit(event: Event) {
       originalLineItemsStatus[item.Itemid] = item.status;
     });
   }
-
       await Swal.fire({
         title: 'Success',
         text: 'Logistics stage completed successfully.',
@@ -1052,7 +1083,17 @@ async function handleSubmit(event: Event) {
     } catch (error) {
         console.error('Error updating current stage:', error);
     }
-  }
+  }catch (error) {
+        console.error('Error:', error);
+        await Swal.fire({
+            title: 'Error',
+            text: 'An error occurred while submitting. Please try again.',
+            icon: 'error'
+        });
+    } finally {
+        loading.hide();
+    }
+}
 
   // Helper functions
   function formatCurrency(amount: number) {
@@ -1123,6 +1164,8 @@ function handleEdit(index: number) {
 
 let isSaveDisabled = false; 
   async function handleSave() {
+    try{
+    loading.show('Saving DC...');
     const currentDCIndex = dcBoxes.length - 1;
     const currentDC = dcBoxes[currentDCIndex];
   
@@ -1141,6 +1184,7 @@ let isSaveDisabled = false;
     showLogisticsAlert = false;
     newlyAvailableItems = [];
     userEnabledPartialDelivery = false;
+
 
     // If all items are Not Available, handle it differently
   if (allItemsNotAvailable) {
@@ -1171,11 +1215,11 @@ let isSaveDisabled = false;
     // Set the DC amount to the current total before saving if it's not already saved
     if (!currentDC.isSaved) {
         currentDC.dcAmount = dcOrderTotal.subtotal;
-      }
+    }
      if (currentDC.isSaved) {
     // Generate and download PDF after saving
     generateAndDownloadPDF(currentDC);
-    }
+  }
     try {
       await fetch(`/submit-stage`, {
       method: 'POST',
@@ -1216,8 +1260,8 @@ let isSaveDisabled = false;
   updateTotalSavedDCAmount();
   saveCurrentState();
   canAccessNextStage = true;
-    
-  if (partialDelivery && userEnabledPartialDelivery) {
+  
+    if (partialDelivery && userEnabledPartialDelivery) {
     const remainingUnsavedItems = lineItemsWithStatus.filter(item => 
       !frozenLineItems[item.id] && 
       (item.status === 'available' || item.status === 'need_to_purchase')
@@ -1262,7 +1306,17 @@ let isSaveDisabled = false;
   currentStage = 2; // Move to stage 2 (Material to Procure)
   // You might want to perform any necessary initialization for stage 2 here
 }
-  }
+  }catch (error) {
+        console.error('Error:', error);
+        await Swal.fire({
+            title: 'Error',
+            text: 'An error occurred while saving. Please try again.',
+            icon: 'error'
+        });
+    } finally {
+        loading.hide();
+    }
+}
 
   function moveToMaterialToProcureStage() {
   currentStage = 2; // Move to stage 2 (Material to Procure)
@@ -1292,6 +1346,8 @@ function handleSaveEdit(index: number) {
 }
 
 async function handleSaveAllNotAvailable() {
+  try{
+  loading.show('Processing not available items...');
   // Update notAvailableItems for the next stage
   notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available');
   
@@ -1314,7 +1370,7 @@ async function handleSaveAllNotAvailable() {
     }
   
 // Show confirmation message
-if (notAvailableItems.length > 0) {
+  if (notAvailableItems.length > 0) {
     await Swal.fire({
       title: 'Items Not Available',
       text: `${notAvailableItems.length} item(s) have been marked as Not Available and will proceed to Material to Procure stage.`,
@@ -1368,7 +1424,18 @@ if (notAvailableItems.length > 0) {
         console.error('Error updating current stage:', error);
     }
     
+}catch (error) {
+        console.error('Error:', error);
+        await Swal.fire({
+            title: 'Error',
+            text: 'An error occurred while processing. Please try again.',
+            icon: 'error'
+        });
+    } finally {
+        loading.hide();
+    }
 }
+
 
 function allLineItemsFrozen() {
   return lineItemsWithStatus.every(item => 
@@ -1564,8 +1631,9 @@ function updateDCAmount(dcIndex: number) {
           console.error('Error converting file to base64:', error);}
       }
       dcBoxes = [...dcBoxes]; // Trigger reactivity
-    }
-    function formatCurrencyForPDF(amount: number): string {
+}
+
+  function formatCurrencyForPDF(amount: number): string {
   // Use the Unicode character for the Indian Rupee symbol
   return `\u20B9 ${amount.toFixed(2)}`;
 }
@@ -1821,8 +1889,9 @@ async function saveAndGoToNextStage() {
   }
 
 
-    // For downloading from a URL (Stage 1)
-    async function downloadFileFromUrl(url: string | null, fileName: string) {
+ 
+  // For downloading from a URL (Stage 1)
+  async function downloadFileFromUrl(url: string | null, fileName: string) {
     if (url) {
       const a = document.createElement('a');
       a.href = url;
@@ -1906,6 +1975,8 @@ async function handleAttachmentChange(event: Event, itemId: string) {
 }
 
 async function handleSaveMaterialToProcure() {
+  try{
+  loading.show('Saving material details...');  
   notAvailableItems = lineItemsWithStatus.filter(item => item.status === 'not_available')
   // const itemsToUpdate = notAvailableItems.filter(item => item.isAvailable || item.needToPurchaseLocally);
   const itemsToUpdate = lineItemsWithStatus.filter(item => item.status === 'not_available');
@@ -2029,6 +2100,16 @@ async function handleSaveMaterialToProcure() {
     } catch (error) {
         console.error('Error updating current stage:', error);
     }
+}catch (error) {
+        console.error('Error:', error);
+        await Swal.fire({
+            title: 'Error',
+            text: 'An error occurred while saving. Please try again.',
+            icon: 'error'
+        });
+    } finally {
+        loading.hide();
+    }
 }
 
 async function openPreviewModalMaterial(item: LineItem) {
@@ -2063,8 +2144,27 @@ async function openPreviewModalMaterial(item: LineItem) {
     serviceFile?: File;
     serviceFileName?: string;
     // ... other properties ...
-  }
-  let shipments: any[] = [{ isSaved: false, activeTab: 'installation', rejected: false, rejectionRemark: '' }];
+    // installationRemark: { content: string; timestamp: string }[];
+  currentRemark: string;
+  // serviceRemarks: { content: string; timestamp: string }[];
+  // currentServiceRemark: string;
+  
+}
+
+
+  let shipments: any[] = [{ isSaved: false, activeTab: 'installation', rejected: false, rejectionRemark: '',
+     // Add these new properties
+  // installationRemarks: [],
+  currentRemark: '',
+  // serviceRemarks: [],
+  // currentServiceRemark: '',
+  
+  // Initialize other properties as needed
+  installationFile: undefined,
+  installationFileName: undefined,
+  serviceFile: undefined,
+  serviceFileName: undefined,
+   }];
 
   function validateMobileNumber(number: string): boolean {
     const regex = /^\d{10}$/;
@@ -2096,7 +2196,7 @@ async function saveShipment(index: number) {
     shipments = [...shipments];
     shipment.accountStatus = '';
     shipment.accountRemark = '';
-    alert(`${shipment.activeTab === 'installation' ? 'Installation' : 'Service'} details ${shipment.isEditing ? 'updated' : 'saved'} successfully.`);
+    // alert(`${shipment.activeTab === 'installation' ? 'Installation' : 'Service'} details ${shipment.isEditing ? 'updated' : 'saved'} successfully.`);
     console.log('Saved shipment:', shipment);
     isSave3Disabled=true;
     // Update the Share with Account stage
@@ -2130,14 +2230,19 @@ async function saveShipment(index: number) {
 function updateShareWithAccountStage() {
   // This function will update the Share with Account stage
   // It will be called whenever a shipment is saved in the Ongoing stage
-  stageData[stageData[4].visible ? 5 : 4].visible = true;
+  // stageData[stageData[4].visible ? 5 : 4].visible = true;
+  const shareWithAccountStageIndex = stageData.findIndex(stage => stage.title === "Share with Account");
+  if (shareWithAccountStageIndex !== -1) {
+    stageData[shareWithAccountStageIndex].visible = true;
+    stageData = [...stageData]; // Trigger reactivity
+  }
 }
 
   function isShipmentValid(shipment: any): boolean {
     if (shipment.activeTab === 'installation') {  
       return Boolean(Stage3Data.engName && Stage3Data.ScheduleDate && 
              Stage3Data.MobNo && Stage3Data.MobNo.length === 10 &&
-             Stage3Data.VendorName && Stage3Data.Remark && Stage3Data.Report);
+             Stage3Data.VendorName  && Stage3Data.Report);
     } else {
       return Boolean( Stage3Data.engName && Stage3Data.ScheduleDate && 
              Stage3Data.MobNo && Stage3Data.MobNo.length === 10 &&
@@ -2164,6 +2269,32 @@ function updateShareWithAccountStage() {
           console.error('Error converting file to base64:', error);}
     } lastSavedTimes[currentStage] = getCurrentDateTime();
   }
+
+  function saveRemark(index: number) {
+  const shipment = shipments[index];
+  if (shipment.currentRemark.trim()) {
+    Stage3Data.Remark.push({
+      content: shipment.currentRemark.trim(),
+      timestamp: new Date().toLocaleString()
+    });
+    shipment.currentRemark = '';
+    Stage3Data = {...Stage3Data};
+    shipments = [...shipments]; // Trigger reactivity
+  }
+}
+
+// function saveServiceRemark(index: number) {
+//   const shipment = shipments[index];
+//   if (shipment.currentServiceRemark.trim()) {
+//     Stage3Data.Remark.push({
+//       content: shipment.currentServiceRemark.trim(),
+//       timestamp: new Date().toLocaleString()
+//     });
+//     shipment.currentServiceRemark = '';
+//     Stage3Data = [...Stage3Data];
+//     shipments = [...shipments]; // Trigger reactivity
+//   }
+// }
 
   function convertFileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -2194,29 +2325,6 @@ function updateShareWithAccountStage() {
   return new File([blob], fileName, { type: mimeType });
 }
 
-  // Return pickup related functions
-
-//   function previewFile() {
-//     if (Stage3Data.PreviewUrl) {
-//       const modal = document.getElementById('previewModal');
-//       const previewImage = document.getElementById('previewImage') as HTMLImageElement | null;
-//       const previewIframe = document.getElementById('previewIframe') as HTMLIFrameElement | null;
-      
-//       console.log('Preview URL:', Stage3Data.PreviewUrl);
-//       console.log('Report Name:', Stage3Data.ReportName);
-
-//       if (modal && previewImage && previewIframe) {
-//         modal.style.display = 'block';
-//         const isPDF = Stage3Data.ReportName.toLowerCase().endsWith('.pdf');
-//         console.log('Is PDF:', isPDF);
-//         previewIframe.src = isPDF ? Stage3Data.PreviewUrl : '';
-//         previewIframe.style.display = isPDF ? 'block' : 'none';
-
-//         previewImage.src = !isPDF ? Stage3Data.PreviewUrl : '';
-//         previewImage.style.display = !isPDF ? 'block' : 'none';
-//         }
-//       }
-// }
 
 function previewFile() {
     if (Stage3Data.Report) {
@@ -2279,25 +2387,6 @@ function previewFile() {
 }
 
 
-// async function downloadFile(url: string | null, fileName: string) {
-//   if (url) {
-//     const a = document.createElement('a');
-//     a.href = url;
-//     a.download = fileName || 'download';
-//     document.body.appendChild(a);
-//     a.click();
-//     document.body.removeChild(a);
-//     URL.revokeObjectURL(url);
-//   } else {
-//     await Swal.fire({
-//         title: 'Oops...',
-//         text: 'No file available for download',
-//         icon: 'warning',
-//         confirmButtonText: 'OK'
-//       });
-//     console.error('No file available for download');
-//   }
-// }
 async function downloadFile(base64DataWithPrefix: string | null, fileName: string) {
   if (base64DataWithPrefix) {
     // Extract the base64 content and the MIME type from the data URL prefix
@@ -2681,8 +2770,8 @@ function updateDeliveryDateMin() {
     }
   }
 
-  $: {
-    stageData[2].visible = lineItemsWithStatus.some(item => item.status === 'not_available');
+$: {
+  stageData[2].visible = lineItemsWithStatus.some(item => item.status === 'not_available');
 }
 $: allItemsNotAvailable = lineItemsWithStatus.every(item => item.status === 'not_available');
 $: allItemsNotAvailableOrNotRequired = lineItemsWithStatus.every(item => 
@@ -2695,7 +2784,7 @@ $: visibleStages = (isDropped || isMonitoring)
     ? stageData.filter(stage => stage.completed)
     : stageData;
 
-    $: anyItemNotAvailable = lineItemsWithStatus.some(item => item.status === 'not_available');
+  $: anyItemNotAvailable = lineItemsWithStatus.some(item => item.status === 'not_available');
 
 $: allItemsAvailableOrPurchaseOrNotRequired = lineItemsWithStatus.every(item => 
   item.status === 'available' || item.status === 'need_to_purchase' || item.status === 'not_required'
@@ -2705,7 +2794,6 @@ $: showDCBoxDetails = (allItemsAvailableOrPurchaseOrNotRequired && !anyItemNotAv
                       (partialDelivery && userEnabledPartialDelivery && anyItemNotAvailable);
 
 $: canAddMoreDC = lineItemsWithStatus.some(item => item.status === 'available' || item.status === 'need_to_purchase');
-
 
 
     let showDetailsModal = false;
@@ -2767,6 +2855,8 @@ $: canAddMoreDC = lineItemsWithStatus.some(item => item.status === 'available' |
   }
   
   async function validateDC(dcIndex: number) {
+    try{
+      loading.show('Validating DC...');
     const dc = dcBoxes[dcIndex];
     if (!dc.DCNumber) {
       await Swal.fire({
@@ -2821,7 +2911,18 @@ $: canAddMoreDC = lineItemsWithStatus.some(item => item.status === 'available' |
     }
 
     dcBoxes = [...dcBoxes]; // Trigger reactivity
-  }
+  }catch (error) {
+        console.error('Error validating DC:', error);
+        await Swal.fire({
+            title: 'Error',
+            text: 'An error occurred while validating the DC number.',
+            icon: 'error',
+            confirmButtonText: 'OK'
+        });
+    } finally {
+        loading.hide();
+    }
+}
 
   async function showDCDetails(dcIndex: number) {
     selectedDC = dcBoxes[dcIndex];
@@ -2941,6 +3042,7 @@ $: canAddMoreDC = lineItemsWithStatus.some(item => item.status === 'available' |
   }
 async function fetchPreviousStagesData() {
   try {
+    loading.show('Fetching previous stages data...');
     const response = await fetch(`/fetch-previous`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2954,9 +3056,16 @@ async function fetchPreviousStagesData() {
       console.log("fucking fetch---", Stage3Data);
       
     }
-  } catch (error) {
-    console.error('Error fetching previous stages data:', error);
-  }
+  }catch (error) {
+        console.error('Error fetching previous stages data:', error);
+        await Swal.fire({
+            title: 'Error',
+            text: 'An error occurred while fetching data. Please try again.',
+            icon: 'error'
+        });
+    } finally {
+        loading.hide();
+    }
 }
 function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetched: boolean, stage3Fetched: boolean } {
   console.log("fetched data-", data);
@@ -2995,8 +3104,9 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   }
 
   if (data.stage3) {
-    Stage3Data = {}; 
+    
     if (data.stage3.installation != null) {
+      Stage3Data = {}; 
       Stage3Data.SONumber = data.stage3.installation.SONumber;
       Stage3Data.engName = data.stage3.installation.engName;
       Stage3Data.MobNo = data.stage3.installation.MobNo;
@@ -3010,6 +3120,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       Stage3Data.PreviewUrl=data.stage3.installation.InstPreviewUrl;
     }
     if (data.stage3.service != null) {
+      Stage3Data = {}; 
       Stage3Data.SONumber = data.stage3.service.SONumber;
       Stage3Data.engName = data.stage3.service.engName;
       Stage3Data.MobNo = data.stage3.service.MobNo;
@@ -3210,6 +3321,8 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
     </div>
     {/if}
 
+    <LoadingOverlay />
+
     <form on:submit={handleSubmit}>
       <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 bg-white rounded-lg shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl border border-gray-200">
         <h3 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2 transition-colors duration-200">{stageData[moveStage].title}</h3>
@@ -3371,7 +3484,9 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.rate)}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatCurrency(item.amount)}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <select bind:value={lineItemsWithStatus[index].status} class="w-max px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" disabled={frozenLineItems[item.Itemid] || !isEditing} >
+                        <select bind:value={lineItemsWithStatus[index].status} 
+                        on:change={() => handleStatusChange(index, lineItemsWithStatus[index].status)}
+                        class="w-max px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200" disabled={frozenLineItems[item.Itemid] || !isEditing} >
                           <option value="">Select status</option>
                           <option value="available">Available</option>
                           <option value="not_available">Not Available</option>
@@ -3385,24 +3500,38 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
               </table>
             </div>
           </div>
+          {#if lineItemsWithStatus.length > 0}
+    <button 
+        class="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        on:click={() => {
+            localStorage.removeItem(STORAGE_KEY);
+            lineItemsWithStatus = lineItemsWithStatus.map(item => ({
+                ...item,
+                status: ''
+            }));
+        }}
+    >
+        Reset All Statuses
+    </button>
+{/if}
           <!-- New reactive statement to check if all items are Not Available or Not Required -->
   
        <!-- Partial Delivery toggle -->
-       {#if anyItemNotAvailable}
-       <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-         <label class="inline-flex items-center cursor-pointer">
-           <input 
-             type="checkbox" 
-             bind:checked={userEnabledPartialDelivery} 
-             class="form-checkbox h-5 w-5 text-blue-600 transition duration-150 ease-in-out"
-           >
-           <span class="ml-2 text-gray-700 font-medium">Enable Partial Delivery</span>
-         </label>
-         <p class="mt-2 text-sm text-gray-600">
-           Check this option to allow partial delivery of available items.
-         </p>
-       </div>
-     {/if}
+ {#if anyItemNotAvailable}
+  <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <label class="inline-flex items-center cursor-pointer">
+      <input 
+        type="checkbox" 
+        bind:checked={userEnabledPartialDelivery} 
+        class="form-checkbox h-5 w-5 text-blue-600 transition duration-150 ease-in-out"
+      >
+      <span class="ml-2 text-gray-700 font-medium">Enable Partial Delivery</span>
+    </label>
+    <p class="mt-2 text-sm text-gray-600">
+      Check this option to allow partial delivery of available items.
+    </p>
+  </div>
+{/if}
 
 
 <!-- DC Order Total section -->
@@ -3707,15 +3836,16 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                 </div>
               </div>
               {/if}
+  
               {#if dc.isSaved}
-              <button 
-                type="button" 
-                on:click={() => generateAndDownloadPDF(dc)}
-                class="px-3 py-1 text-sm text-purple-600 hover:text-purple-800 border border-purple-600 rounded-md transition-colors duration-200"
-              >
-                Download DC PDF
-              </button>
-            {/if}
+                <button 
+                  type="button" 
+                  on:click={() => generateAndDownloadPDF(dc)}
+                  class="px-3 py-1 text-sm text-purple-600 hover:text-purple-800 border border-purple-600 rounded-md transition-colors duration-200"
+                >
+                  Download DC PDF
+                </button>
+              {/if}
                 </div>
                 {#if showCustomNameModal}
                 <div class="fixed z-10 inset-0 overflow-y-auto">
@@ -3803,12 +3933,12 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   
   <div class="flex justify-between mt-4">
   <div class="flex space-x-2">
-    {#if moveStage >= currentStage && !dcBoxes[dcBoxes.length - 1].isSaved}
+    {#if !dcBoxes[dcBoxes.length - 1].isSaved}
     <button 
       type="button" 
       on:click={handleSave} 
       class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      disabled={!canSaveDC(dcBoxes[dcBoxes.length - 1]) || isSaveDisabled}
+      disabled={!canSaveDC(dcBoxes[dcBoxes.length - 1])}
     >
       Save
     </button>
@@ -3823,21 +3953,21 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           Add More +
         </button>
       {/if}
-    </div>
-    </div>
-    {:else if anyItemNotAvailable}
-    <!-- Show save button to move to next stage -->
-    <div class="mt-6">
-      <button 
-        type="button" 
-        on:click={saveAndGoToNextStage} 
-        class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
-      >
-        Save and Go to Material to Procure
-      </button>
   </div>
-  {/if}
-  {/if}
+  </div>
+  {:else if anyItemNotAvailable}
+  <!-- Show save button to move to next stage -->
+  <div class="mt-6">
+    <button 
+      type="button" 
+      on:click={saveAndGoToNextStage} 
+      class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
+    >
+      Save and Go to Material to Procure
+    </button>
+</div>
+{/if}
+{/if}
 
 {:else if moveStage === 2}
 <!-- Material to Procure stage content -->
@@ -3850,7 +3980,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <table class="w-full">
         <thead class="bg-gray-100">
           <tr>
-            {#each ['No.', 'Item', 'Quantity', 'Rate', 'Amount', 'Available', 'Need to purchase'] as header}
+            {#each ['No.', 'Item', 'Quantity', 'Rate', 'Amount', 'Available- In stock', 'Need to purchase locally'] as header}
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{header}</th>
             {/each}
           </tr>
@@ -4031,14 +4161,14 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           
           <!-- Dynamic header based on active tab -->
           <h5 class="text-xl font-bold text-gray-800 mb-4">
-            {Stage3Data?.activeTab === 'service' ? 'Service Report' : 'Installation Report'}
+            {Stage3Data.activeTab === 'service' ? 'Service Report' : 'Installation Report'}
           </h5>          
 
           <!-- Toggle buttons for Installation and Service -->
           <div class="flex justify-center mb-6">
             <button
             class="px-6 py-3 rounded-l-lg transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 
-                  {Stage3Data?.activeTab === 'installation' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+                  {Stage3Data.activeTab === 'installation' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
             on:click={() => {
               if (!shipment.isSaved || shipment.isEditing) {
                 if (Stage3Data) {
@@ -4068,7 +4198,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             </button>
           </div>
 
-        {#if Stage3Data?.activeTab === 'installation'}
+        {#if Stage3Data.activeTab === 'installation'}
           <!-- Installation fields -->
           <div class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -4111,7 +4241,35 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             </div>
             <div class="flex flex-col">
               <label for="installation-remarks-{index}" class="text-sm font-semibold text-gray-700">Installation Remarks:</label>
-              <textarea id="installation-remarks-{index}" bind:value={Stage3Data.Remark} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" rows="4" disabled={shipment.isSaved && !shipment.isEditing || !isEditing}></textarea>
+              <!-- <textarea id="installation-remarks-{index}" bind:value={Stage3Data.Remark} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" rows="4" disabled={shipment.isSaved && !shipment.isEditing || !isEditing}></textarea> -->
+              {#if Array.isArray(Stage3Data.Remark)}
+              {#each Stage3Data.Remark as remark, remarkIndex}
+              <div class="mt-2 p-3 bg-gray-100 rounded-lg">
+                <p class="text-sm text-gray-600">Remark #{remarkIndex + 1}</p>
+                <p class="mt-1">{remark.content}</p>
+                <p class="text-xs text-gray-500 mt-1">Submitted on: {remark.timestamp}</p>
+              </div>
+            {/each}
+            {/if}
+            {#if !shipment.isSaved && shipment.isEditing || isEditing}
+            <textarea
+              id="installation-remarks-{index}" 
+              bind:value={shipment.currentRemark} 
+              class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" 
+              rows="4" 
+              placeholder="Enter new installation remark here"
+            ></textarea>
+            <div class="relative flex space-y-4 mt-4">
+            <button 
+              type="button" 
+              on:click={() => saveRemark(index)}
+              class="px-5 py-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300 transition duration-300 ease-in-out shadow-md"
+              disabled={!shipment.currentRemark.trim()}
+            >
+              Save Remark
+            </button>
+          </div>
+          {/if}
             </div>
             <div class="flex flex-col">
               <label for="installation-report-{index}" class="text-sm font-semibold text-gray-700">Installation Report Attachment:</label>
@@ -4232,7 +4390,35 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             </div>
             <div class="flex flex-col">
               <label for="service-remarks-{index}" class="text-sm font-semibold text-gray-700">Service Remarks:</label>
-              <textarea id="service-remarks-{index}" bind:value={Stage3Data.Remark} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" rows="4" disabled={shipment.isSaved && !shipment.isEditing || !isEditing}></textarea>
+              <!-- <textarea id="service-remarks-{index}" bind:value={Stage3Data.Remark} class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" rows="4" disabled={shipment.isSaved && !shipment.isEditing || !isEditing}></textarea> -->
+              {#if Array.isArray(Stage3Data.Remark)}
+              {#each Stage3Data.Remark as remark, remarkIndex}
+              <div class="mt-2 p-3 bg-gray-100 rounded-lg">
+                <p class="text-sm text-gray-600">Remark #{remarkIndex + 1}</p>
+                <p class="mt-1">{remark.content}</p>
+                <p class="text-xs text-gray-500 mt-1">Submitted on: {remark.timestamp}</p>
+              </div>
+              {/each}
+              {/if}
+              {#if !shipment.isSaved && shipment.isEditing || isEditing}
+            <textarea 
+              id="service-remarks-{index}" 
+              bind:value={shipment.currentRemark} 
+              class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" 
+              rows="4" 
+              placeholder="Enter new service remark here"
+            ></textarea>
+            <div class="relative flex space-x-4 mt-4">
+            <button 
+              type="button" 
+              on:click={() => saveRemark(index)}
+              class="px-5 py-2 bg-green-500 text-white font-medium rounded-lg hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300 transition duration-300 ease-in-out shadow-md"
+              disabled={!shipment.currentRemark.trim()}
+            >
+              Save Remark
+            </button>
+          </div>
+          {/if}
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="flex flex-col">
@@ -4266,6 +4452,8 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
               </div>
             </div>
           </div>
+     {/if}
+
           {#if showCustomNameModal}
                 <div class="fixed z-10 inset-0 overflow-y-auto">
                   <div class="flex items-center justify-center min-h-screen px-4">
@@ -4315,7 +4503,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
                     </div>
                   </div>
                 </div>
-              {/if}
+              
         {/if}
 
         {#if !shipment.isSaved || shipment.isEditing}
@@ -4387,17 +4575,22 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
 
         
         <!-- Return Pickup toggle button -->
+        {#if moveStage===currentStage}
         <button 
           type="button" 
           on:click={() => {
             Stage4Data.returnPickupRequested = !Stage4Data.returnPickupRequested;
+            const returnPickupStageIndex = stageData.findIndex(stage => stage.title === "Stage 4. Return Pickup");
+            if (returnPickupStageIndex !== -1) {
+            stageData[returnPickupStageIndex].visible = Stage4Data.returnPickupRequested;
             stageData = [...stageData]; // Trigger reactivity
+            }
           }}
           class="mt-4 mb-4 px-6 py-3 {Stage4Data.returnPickupRequested ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold rounded-lg transition duration-300 ease-in-out shadow-lg"
           disabled={returnPickupDetailsSaved} 
         >
           {Stage4Data.returnPickupRequested ? 'Cancel Return Pickup' : 'Request Return Pickup'}
-        </button>
+        </button>{/if}
        <!-- Return Pickup Details box -->
        {#if Stage4Data.returnPickupRequested && !showReturnPickupConfirmation}
        <div class="mb-8 p-6 border border-gray-300 rounded-lg bg-gray-50 shadow-md">
@@ -5096,9 +5289,9 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
   {/if}
   <!-- {/each} -->
 
+  {#if Stage4Data===true}
   <h4 class="text-lg font-bold mb-2">Return Pickups Report</h4>
   <!-- Return Pickups -->
-  {#if Stage4Data}
   <div class="bg-white shadow-lg rounded-lg p-6 mb-8 relative">
     <!-- Return pickup report remarks -->
     <div class="mb-6">
