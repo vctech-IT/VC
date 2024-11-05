@@ -1094,6 +1094,101 @@ async function handleSubmit(event: Event) {
         loading.hide();
     }
 }
+const resubmitReport = async (index: number) => {
+  try {
+    // Show loading indicator
+    const loading = Swal.fire({
+      title: 'Submitting...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    if (!Stage3Data.Report) {
+      await Swal.fire({
+        title: 'Error',
+        text: 'Please upload a new file before resubmitting',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+
+    // Reset rejection status
+    Stage5Data.rejected1 = null;
+    Stage5Data.accRemark = "";
+    Stage5Data.accStatus = "";
+
+    // Prepare submission data based on active tab
+    const submissionData = {
+      SONumber: Stage0Data.SONumber,
+      Report: Stage3Data.Report,
+      ReportName: Stage3Data.ReportName,
+      Ticketid: Stage3Data.Ticketid || '',
+      activeTab: Stage3Data.activeTab
+    };
+    console.log("submission---",submissionData);
+    // Submit the data
+    try {
+      const response = await fetch(`/submit-stage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          stage: 3, // Using stage 3 since this is for ongoing stage
+          data: submissionData 
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit data');
+      }
+      
+
+      // Show success message
+      await Swal.fire({
+        title: 'Success',
+        text: 'Report resubmitted successfully',
+        icon: 'success',
+        confirmButtonText: 'OK'
+      });
+
+      // Update current stage if needed
+      // try {
+      //   await fetch('/update-current-stage', {
+      //     method: 'POST',
+      //     headers: { 'Content-Type': 'application/json' },
+      //     body: JSON.stringify({
+      //       SONumber: Stage0Data.SONumber,
+      //       currentStage: currentStage
+      //     })
+      //   });
+      // } catch (error) {
+      //   console.error('Error updating current stage:', error);
+      // }
+
+    } catch (error) {
+      console.error('Error resubmitting report:', error);
+      await Swal.fire({
+        title: 'Error',
+        text: 'Failed to resubmit report. Please try again.',
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error in resubmission process:', error);
+    await Swal.fire({
+      title: 'Error',
+      text: 'An unexpected error occurred. Please try again.',
+      icon: 'error',
+      confirmButtonText: 'OK'
+    });
+  } finally {
+    loading.hide();
+  }
+};
 
   // Helper functions
   function formatCurrency(amount: number) {
@@ -4273,7 +4368,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             </div>
             <div class="flex flex-col">
               <label for="installation-report-{index}" class="text-sm font-semibold text-gray-700">Installation Report Attachment:</label>
-              {#if !shipment.isSaved || shipment.isEditing || !isEditing}
+              {#if Stage5Data.rejected1 || (!shipment.isSaved || shipment.isEditing || !isEditing)}
               <input type="file" id="installation-report-{index}" on:change={(e) => handleStage3FileChange(e, 'installation', index)} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
             {/if}
               {#if Stage3Data?.Report || ''}
@@ -4423,7 +4518,7 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="flex flex-col">
                 <label for="service-report-{index}" class="text-sm font-semibold text-gray-700">Service Report Attachment:</label>
-                {#if !shipment.isSaved || shipment.isEditing}
+                {#if Stage5Data.rejected1 || (!shipment.isSaved || shipment.isEditing)}
                 <input type="file" id="service-report-{index}" on:change={(e) => handleStage3FileChange(e, 'service', index)} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="mt-2 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                 {/if}
                 {#if Stage3Data?.Report || ''}
@@ -4517,6 +4612,18 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
           >
           {shipment.isEditing ? 'Update' : 'Save'}
         </button>
+        {/if}
+        {#if Stage5Data.rejected1}
+  <div class="relative flex space-x-4 mt-4">
+    <button 
+      type="button" 
+      on:click={() => resubmitReport(index)}
+      class="px-5 py-2 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300 transition duration-300 ease-in-out shadow-md"
+      disabled={!Stage3Data.Report} 
+    >
+      Resubmit Report
+    </button>
+  </div>
         {/if}
         {#if shipment.isEditing}
           <button 
@@ -5162,6 +5269,13 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
         rows="4"  
         disabled
       ></textarea>
+      {#each Stage3Data.Remark as remark, remarkIndex}
+      <div class="mt-2 p-3 bg-gray-100 rounded-lg">
+        <p class="text-sm text-gray-600">Remark #{remarkIndex + 1}</p>
+        <p class="mt-1">{remark.content}</p>
+        <p class="text-xs text-gray-500 mt-1">Submitted on: {remark.timestamp}</p>
+      </div>
+{/each}
     </div>
     <div>
       <label for="report-attachment-{index}" class="block text-sm font-medium text-gray-700 mb-1">
