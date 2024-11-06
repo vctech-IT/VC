@@ -5262,13 +5262,13 @@ function fillPreviousStagesData(data: any): { stage0Fetched: boolean, stage1Fetc
       <label for="report-remarks-{index}" class="block text-sm font-medium text-gray-700 mb-1">
         {Stage3Data.activeTab === 'installation' ? 'Installation' : 'Service'} Remarks:
       </label>
-      <textarea 
+      <!-- <textarea 
         id="report-remarks-{index}" 
         value={Stage3Data.Remark} 
         class="w-full px-3 py-2 text-gray-700 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
         rows="4"  
         disabled
-      ></textarea>
+      ></textarea> -->
       {#each Stage3Data.Remark as remark, remarkIndex}
       <div class="mt-2 p-3 bg-gray-100 rounded-lg">
         <p class="text-sm text-gray-600">Remark #{remarkIndex + 1}</p>
