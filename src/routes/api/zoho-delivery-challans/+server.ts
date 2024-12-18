@@ -3,10 +3,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-const REFRESH_TOKEN = 1000.b94e5345a93e9e0f672a31a27a2fd390.0ba27ca3d43ba0863e11c303b6a8c16f;
-const CLIENT_ID = 1000.KXTGP1GAGIDX12Q294C6OIMVR60VMX;
-const CLIENT_SECRET = bb44b083c2b29eb4eefd1a605266a866fcd5f491fb;
-const REDIRECT_URI = https://www.google.com/;
+const REFRESH_TOKEN = '1000.b94e5345a93e9e0f672a31a27a2fd390.0ba27ca3d43ba0863e11c303b6a8c16f';
+const CLIENT_ID = '1000.KXTGP1GAGIDX12Q294C6OIMVR60VMX';
+const CLIENT_SECRET = 'bb44b083c2b29eb4eefd1a605266a866fcd5f491fb';
+const REDIRECT_URI = 'https://www.google.com/';
 const ORGANIZATION_ID = '60005679410';
 
 let authToken: string | null = null;
