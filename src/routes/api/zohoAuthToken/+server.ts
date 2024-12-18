@@ -2,10 +2,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-const REFRESH_TOKEN = process.env.VITE_ZOHO_REFRESH_TOKEN;
-const CLIENT_ID = process.meta.env.VITE_ZOHO_CLIENT_ID;
-const CLIENT_SECRET = process.meta.env.VITE_ZOHO_CLIENT_SECRET;
-const REDIRECT_URI = process.meta.env.VITE_ZOHO_REDIRECT_URI;
+const REFRESH_TOKEN = 1000.b94e5345a93e9e0f672a31a27a2fd390.0ba27ca3d43ba0863e11c303b6a8c16f;
+const CLIENT_ID = 1000.KXTGP1GAGIDX12Q294C6OIMVR60VMX;
+const CLIENT_SECRET = bb44b083c2b29eb4eefd1a605266a866fcd5f491fb;
+const REDIRECT_URI = https://www.google.com/;
 
 let authToken: string | null = null;
 let tokenExpiry = 0;
